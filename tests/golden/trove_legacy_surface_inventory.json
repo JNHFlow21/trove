@@ -1,0 +1,1046 @@
+{
+  "schema_version": 1,
+  "artifact_type": "trove_legacy_surface_inventory",
+  "captured_git_sha": "267bad1094313bbf89835a1b6df325cedd5ee64a",
+  "dispositions": [
+    "admin",
+    "intentional_delete",
+    "internal",
+    "new_public",
+    "operations"
+  ],
+  "items": [
+    {
+      "surface": "cli",
+      "name": "appmsg-backfill",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "approval-decision",
+      "disposition": "internal",
+      "replacement": "trove operator approve|reject"
+    },
+    {
+      "surface": "cli",
+      "name": "approval-request",
+      "disposition": "new_public",
+      "replacement": "trove approval request"
+    },
+    {
+      "surface": "cli",
+      "name": "approvals",
+      "disposition": "new_public",
+      "replacement": "trove approval list"
+    },
+    {
+      "surface": "cli",
+      "name": "ask",
+      "disposition": "intentional_delete",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "chat-recall",
+      "disposition": "new_public",
+      "replacement": "trove recall"
+    },
+    {
+      "surface": "cli",
+      "name": "cloud-readiness",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "content-kind-backfill",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "context",
+      "disposition": "new_public",
+      "replacement": "trove context"
+    },
+    {
+      "surface": "cli",
+      "name": "conversation-card",
+      "disposition": "intentional_delete",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "customer-card",
+      "disposition": "intentional_delete",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "customer-profile",
+      "disposition": "new_public",
+      "replacement": "trove profile show"
+    },
+    {
+      "surface": "cli",
+      "name": "decrypt",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "decrypt key-capture",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "decrypt preflight",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "decrypt rollback",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "decrypt run",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "decrypt status",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "doctor",
+      "disposition": "new_public",
+      "replacement": "trove doctor"
+    },
+    {
+      "surface": "cli",
+      "name": "down",
+      "disposition": "new_public",
+      "replacement": "trove stop"
+    },
+    {
+      "surface": "cli",
+      "name": "embed-daemon",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "eval",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "eval-matrix",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "files-archive",
+      "disposition": "operations",
+      "replacement": "trove files export"
+    },
+    {
+      "surface": "cli",
+      "name": "files-list",
+      "disposition": "new_public",
+      "replacement": "trove files list"
+    },
+    {
+      "surface": "cli",
+      "name": "identity-reconcile",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "image-observe",
+      "disposition": "operations",
+      "replacement": "trove media enrich"
+    },
+    {
+      "surface": "cli",
+      "name": "import",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "import-contacts",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "import-favorites",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "import-moments",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "import-real",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "import-status",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "index",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "list-contacts",
+      "disposition": "new_public",
+      "replacement": "trove resolve"
+    },
+    {
+      "surface": "cli",
+      "name": "list-conversations",
+      "disposition": "new_public",
+      "replacement": "trove resolve"
+    },
+    {
+      "surface": "cli",
+      "name": "list-favorites",
+      "disposition": "intentional_delete",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "list-moments",
+      "disposition": "intentional_delete",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "maintain",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "media",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "media annotate",
+      "disposition": "operations",
+      "replacement": "trove media annotate"
+    },
+    {
+      "surface": "cli",
+      "name": "media observe",
+      "disposition": "operations",
+      "replacement": "trove media enrich"
+    },
+    {
+      "surface": "cli",
+      "name": "media status",
+      "disposition": "new_public",
+      "replacement": "trove media status"
+    },
+    {
+      "surface": "cli",
+      "name": "media transcribe",
+      "disposition": "operations",
+      "replacement": "trove media transcribe"
+    },
+    {
+      "surface": "cli",
+      "name": "media understanding-status",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "media-fetch",
+      "disposition": "new_public",
+      "replacement": "trove media fetch"
+    },
+    {
+      "surface": "cli",
+      "name": "media-inventory",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "media-reference-backfill",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "media-status",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "model-status",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "observe",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "observe add",
+      "disposition": "operations",
+      "replacement": "trove observe add"
+    },
+    {
+      "surface": "cli",
+      "name": "observe approve",
+      "disposition": "internal",
+      "replacement": "trove operator approve|reject"
+    },
+    {
+      "surface": "cli",
+      "name": "observe list",
+      "disposition": "new_public",
+      "replacement": "trove observe list"
+    },
+    {
+      "surface": "cli",
+      "name": "observe propose",
+      "disposition": "operations",
+      "replacement": "trove observe propose"
+    },
+    {
+      "surface": "cli",
+      "name": "observe retire",
+      "disposition": "operations",
+      "replacement": "trove observe add"
+    },
+    {
+      "surface": "cli",
+      "name": "person-profile",
+      "disposition": "new_public",
+      "replacement": "trove profile show"
+    },
+    {
+      "surface": "cli",
+      "name": "person-profile plan",
+      "disposition": "new_public",
+      "replacement": "trove profile build"
+    },
+    {
+      "surface": "cli",
+      "name": "person-profile propose",
+      "disposition": "operations",
+      "replacement": "trove observe add"
+    },
+    {
+      "surface": "cli",
+      "name": "person-profile show",
+      "disposition": "new_public",
+      "replacement": "trove profile show"
+    },
+    {
+      "surface": "cli",
+      "name": "process-config",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "profile-auto",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "profile-auto disable",
+      "disposition": "admin",
+      "replacement": "trove repair <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "profile-auto enable",
+      "disposition": "admin",
+      "replacement": "trove repair <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "profile-auto refresh",
+      "disposition": "admin",
+      "replacement": "trove repair <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "profile-auto run-due",
+      "disposition": "admin",
+      "replacement": "trove repair <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "profile-auto status",
+      "disposition": "admin",
+      "replacement": "trove repair <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment appmsg-execute",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment claim",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment complete",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment fail",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment finalize",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment heartbeat",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment image-annotate",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment plan",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment redeem-media",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment resume",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment revoke",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment snapshot-status",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment status",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-enrichment voice-execute",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "profile-snapshots",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "profile-snapshots diff",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "profile-snapshots get",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "profile-snapshots list",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "profile-snapshots status",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "provider-jobs",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "provider-pricing",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "provider-status",
+      "disposition": "new_public",
+      "replacement": "trove provider status"
+    },
+    {
+      "surface": "cli",
+      "name": "ps",
+      "disposition": "new_public",
+      "replacement": "trove status"
+    },
+    {
+      "surface": "cli",
+      "name": "realtime-sync",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "rebuild-chunks",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "rebuild-fts",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "report",
+      "disposition": "intentional_delete",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "reset-index",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "reset-index-cache",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "schedule",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "schedule install",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "schedule status",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "schedule uninstall",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "scope-rebuild",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "scope-status",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "search",
+      "disposition": "new_public",
+      "replacement": "trove search"
+    },
+    {
+      "surface": "cli",
+      "name": "source-inventory",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "source-manifest",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "status",
+      "disposition": "new_public",
+      "replacement": "trove status"
+    },
+    {
+      "surface": "cli",
+      "name": "sync",
+      "disposition": "new_public",
+      "replacement": "trove sync"
+    },
+    {
+      "surface": "cli",
+      "name": "trace",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "up",
+      "disposition": "new_public",
+      "replacement": "trove start"
+    },
+    {
+      "surface": "cli",
+      "name": "vector-index",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "vector-rebuild",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "vector-status",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "cli",
+      "name": "version",
+      "disposition": "new_public",
+      "replacement": "trove version"
+    },
+    {
+      "surface": "cli",
+      "name": "voice-transcribe",
+      "disposition": "operations",
+      "replacement": "trove media enrich"
+    },
+    {
+      "surface": "cli",
+      "name": "wiki",
+      "disposition": "intentional_delete",
+      "replacement": ""
+    },
+    {
+      "surface": "cli",
+      "name": "writer-marker-recovery",
+      "disposition": "admin",
+      "replacement": "trove repair/provider/sync <catalog-defined-leaf>"
+    },
+    {
+      "surface": "entry_point",
+      "name": "trove",
+      "disposition": "new_public",
+      "replacement": "trove"
+    },
+    {
+      "surface": "entry_point",
+      "name": "trove-api",
+      "disposition": "intentional_delete",
+      "replacement": ""
+    },
+    {
+      "surface": "entry_point",
+      "name": "trove-mcp",
+      "disposition": "new_public",
+      "replacement": "trove-mcp"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_appmsg_repair",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_appmsg_repair_plan",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_chat_recall",
+      "disposition": "new_public",
+      "replacement": "trove_recall"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_context",
+      "disposition": "new_public",
+      "replacement": "trove_context"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_customer_profile",
+      "disposition": "new_public",
+      "replacement": "trove_profile"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_files_archive",
+      "disposition": "operations",
+      "replacement": "trove_files_export"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_files_list",
+      "disposition": "new_public",
+      "replacement": "trove_files_list"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_identity_reconcile",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_identity_reconcile_plan",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_list_approvals",
+      "disposition": "operations",
+      "replacement": "trove_approval_status"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_list_contacts",
+      "disposition": "new_public",
+      "replacement": "trove_resolve/trove_media_enrich"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_list_conversations",
+      "disposition": "new_public",
+      "replacement": "trove_resolve/trove_media_enrich"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_list_favorites",
+      "disposition": "new_public",
+      "replacement": "trove_resolve/trove_media_enrich"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_list_moments",
+      "disposition": "new_public",
+      "replacement": "trove_resolve/trove_media_enrich"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_maintain",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_media_annotate",
+      "disposition": "new_public",
+      "replacement": "trove_resolve/trove_media_enrich"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_media_fetch",
+      "disposition": "new_public",
+      "replacement": "trove_media_fetch"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_media_understanding_invalidate",
+      "disposition": "new_public",
+      "replacement": "trove_resolve/trove_media_enrich"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_media_understanding_status",
+      "disposition": "new_public",
+      "replacement": "trove_resolve/trove_media_enrich"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_message_media_repair",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_message_media_repair_plan",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_observe_add",
+      "disposition": "operations",
+      "replacement": "trove_observe_add"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_observe_propose",
+      "disposition": "operations",
+      "replacement": "trove_observe_add"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_person_profile",
+      "disposition": "new_public",
+      "replacement": "trove_profile"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_person_profile_claims_propose",
+      "disposition": "intentional_delete",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_automation",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_automation_status",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_appmsg_execute",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_claim",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_complete",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_fail",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_finalize",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_heartbeat",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_image_annotate",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_plan",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_redeem_media",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_resume",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_revoke",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_status",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_enrichment_voice_execute",
+      "disposition": "internal",
+      "replacement": ""
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_snapshot_status",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_profile_snapshots",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_request_approval",
+      "disposition": "operations",
+      "replacement": "trove_approval_request"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_schedule_dry_run",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_search",
+      "disposition": "new_public",
+      "replacement": "trove_search"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_sync",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_vault_status",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_vector_status",
+      "disposition": "admin",
+      "replacement": "admin catalog capability"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_voice_transcribe_lazy",
+      "disposition": "new_public",
+      "replacement": "trove_resolve/trove_media_enrich"
+    },
+    {
+      "surface": "mcp",
+      "name": "trove_wiki",
+      "disposition": "intentional_delete",
+      "replacement": ""
+    },
+    {
+      "surface": "skill",
+      "name": "trove-chat-recall",
+      "disposition": "new_public",
+      "replacement": "trove-recall"
+    },
+    {
+      "surface": "skill",
+      "name": "trove-person-crm",
+      "disposition": "new_public",
+      "replacement": "trove-person-crm"
+    }
+  ]
+}

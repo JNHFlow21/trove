@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-contract:
+    runs-on: ubuntu-latest
+    env:
+      TROVE_RUNTIME_INSTALL_EXTRAS: ""
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: bash scripts/bootstrap_runtime.sh
+      - run: ./scripts/trove-python scripts/check.py unit
+      - run: ./scripts/trove-python scripts/check.py contract
+      - run: ./scripts/trove-python scripts/privacy_scan.py .
+
+  macos-product:
+    runs-on: macos-latest
+    env:
+      TROVE_RUNTIME_INSTALL_EXTRAS: "local-vision,local-embedding,zvec"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: bash scripts/bootstrap_runtime.sh
+      - run: ./scripts/trove-python scripts/check.py package
+      - run: ./scripts/trove-python scripts/check.py e2e

@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+build/
+dist/
+*.egg-info/
+
+# Node / loopback web console
+node_modules/
+
+# Runtime vaults and sensitive WeChat artifacts
+.trove-vault/
+.trove-fixture-vault/
+**/decrypted/
+**/logs/
+**/output/
+**/key_store.json
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*-wal
+**/*-shm
+**/*.db-wal
+**/*.db-shm
+**/messages.jsonl
+**/raw_chat_export*/
+
+# Auto-reply / sender denylist artifacts
+**/wechat_auto_reply.py
+**/auto_reply_*
+**/wechat_sender.swift
+**/wechat_auto_reply_helper.swift
+**/send_wechat_message.applescript
+**/LaunchAgents/
+**/*.plist
+
+# Local config/secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+.DS_Store
+
+# Skill Hub generated project activation bridges
+/.agents/skills/
+/.codex/skills/
+/.claude/skills/
+/.hermes/skills/

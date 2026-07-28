@@ -1,0 +1,3 @@
+{"id":"customer_blocker","query":"这个客户之前卡在哪一步","expected_citation":"trove://wechat/acct-work/conv-sales-review/message_0/10","filters":{"conversation_id":"conv-sales-review"}}
+{"id":"team_api","query":"API local token","expected_citation":"trove://wechat/acct-work/conv-trove-team/message_0/21","filters":{"conversation_id":"conv-trove-team"}}
+{"id":"ui_shape","query":"Web Console UI 搜索框 Context panel","expected_citation":"trove://wechat/acct-work/conv-trove-team/message_0/22","filters":{"conversation_id":"conv-trove-team"}}

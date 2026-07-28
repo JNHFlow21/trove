@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:trove:protocol:1:envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "protocol": {"const": "trove/1"},
+    "request_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "ok": {"type": "boolean"},
+    "data": {"type": "object"},
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "retryable": {"type": "boolean"},
+        "message": {"type": "string"},
+        "details": {"type": "object"}
+      },
+      "required": ["code", "retryable"]
+    },
+    "page": {"type": "object"},
+    "coverage": {"type": "object"},
+    "next": {"type": "object"},
+    "warnings": {"type": "array", "items": {"type": "object"}},
+    "provenance": {"type": "object"}
+  },
+  "required": ["protocol", "request_id", "ok"],
+  "oneOf": [
+    {"required": ["data"], "not": {"required": ["error"]}},
+    {"required": ["error"], "not": {"required": ["data"]}}
+  ]
+}

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trove-provider-wechat"
+version = "1.0.0"
+requires-python = ">=3.11"
+dependencies = [
+  "trove-runtime==1.0.0",
+  "pyobjc-framework-Cocoa>=10,<12; sys_platform == 'darwin'",
+  "pyobjc-framework-Quartz>=10,<12; sys_platform == 'darwin'",
+]
+
+[project.entry-points."trove.providers"]
+wechat-source = "trove_provider_wechat:create_provider"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["trove_provider_wechat*"]
+
+[tool.setuptools.package-data]
+trove_provider_wechat = ["manifest.json", "package.seal"]

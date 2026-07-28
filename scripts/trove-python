@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VENV_DIR="${TROVE_VENV_DIR:-$ROOT/.venv}"
+PY="$VENV_DIR/bin/python"
+
+if [[ ! -x "$PY" ]]; then
+  cat >&2 <<MSG
+TROVE project runtime is not ready.
+Expected project Python: $PY
+Run first:
+  bash scripts/bootstrap_runtime.sh
+
+This project intentionally does not run product commands with system Python.
+MSG
+  exit 127
+fi
+
+export PYTHONNOUSERSITE=1
+PROJECT_PYTHONPATH="$ROOT/packages/trove_protocol:$ROOT/packages/trove_core:$ROOT/packages/trove_client:$ROOT/packages/trove_daemon:$ROOT/packages/trove_provider_wechat:$ROOT/packages/trove_cli:$ROOT/packages/trove_mcp"
+if [[ "${TROVE_ALLOW_EXTRA_PYTHONPATH:-0}" == "1" && -n "${PYTHONPATH:-}" ]]; then
+  export PYTHONPATH="$PROJECT_PYTHONPATH:$PYTHONPATH"
+else
+  export PYTHONPATH="$PROJECT_PYTHONPATH"
+fi
+
+exec "$PY" "$@"

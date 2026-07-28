@@ -1,0 +1,20 @@
+{
+  "capabilities": [
+    "read",
+    "media",
+    "action"
+  ],
+  "package_sha256": "f73aa19d6539606ad24d94f2bb7cea5c3bdfde7c6b2d68ecd9a734744a8e2e88",
+  "protocol_max": "trove/1",
+  "protocol_min": "trove/1",
+  "provider_id": "wechat-source",
+  "resource_class": "bounded-local",
+  "schema_sha256": "c817a4aa451f7d7b5aa850a3286d9cb946890a2550a725866c96760bb64cdefa",
+  "secret_names": [
+    "TROVE_WECHAT_KEY_STORE"
+  ],
+  "source_types": [
+    "wechat"
+  ],
+  "version": "1.0.0"
+}

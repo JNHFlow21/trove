@@ -1,0 +1,1617 @@
+{
+  "protocol": "trove/1",
+  "catalog_sha256": "4d8393bb756fbf97618e4ce328b04c0736dfcca4fe5007ecadd5f42007e03078",
+  "packs": {
+    "standard": [
+      "trove.capabilities",
+      "trove.resolve",
+      "trove.recall",
+      "trove.group_summary",
+      "trove.search",
+      "trove.context",
+      "trove.profile",
+      "trove.files_list",
+      "trove.media_fetch",
+      "trove.media_enrich",
+      "trove.operation_status",
+      "trove.operation_continue"
+    ],
+    "operations": [
+      "trove.capabilities",
+      "trove.resolve",
+      "trove.recall",
+      "trove.group_summary",
+      "trove.search",
+      "trove.context",
+      "trove.profile",
+      "trove.files_list",
+      "trove.media_fetch",
+      "trove.media_enrich",
+      "trove.operation_status",
+      "trove.operation_continue",
+      "trove.profile_build",
+      "trove.files_export",
+      "trove.observe_add",
+      "trove.observe_list",
+      "trove.operation_cancel",
+      "trove.approval_request",
+      "trove.approval_status"
+    ],
+    "admin": [
+      "trove.capabilities",
+      "trove.resolve",
+      "trove.recall",
+      "trove.group_summary",
+      "trove.search",
+      "trove.context",
+      "trove.profile",
+      "trove.files_list",
+      "trove.reply_status",
+      "trove.reply_reviews",
+      "trove.reply_activity",
+      "trove.media_fetch",
+      "trove.media_enrich",
+      "trove.operation_status",
+      "trove.operation_continue",
+      "trove.profile_build",
+      "trove.files_export",
+      "trove.observe_add",
+      "trove.observe_list",
+      "trove.operation_cancel",
+      "trove.approval_request",
+      "trove.approval_status",
+      "trove.sync",
+      "trove.provider_status",
+      "trove.provider_reload",
+      "trove.repair",
+      "trove.diagnostics"
+    ]
+  },
+  "capabilities": [
+    {
+      "id": "trove.capabilities",
+      "mcp": "trove_capabilities",
+      "cli": [
+        "capabilities"
+      ],
+      "description": "List installed capabilities, availability, packs, and bounded account metadata.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.resolve",
+      "mcp": "trove_resolve",
+      "cli": [
+        "accounts"
+      ],
+      "description": "List accounts or resolve a contact or conversation without silent ambiguity.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "contact",
+              "conversation",
+              "account",
+              null
+            ]
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.recall",
+      "mcp": "trove_recall",
+      "cli": [
+        "recall"
+      ],
+      "description": "Read one bounded deterministic message timeline with citations and coverage.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": true,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "conversation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "incoming",
+              "outgoing",
+              "both"
+            ],
+            "default": "both"
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "query": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 20
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.group_summary",
+      "mcp": "trove_group_summary",
+      "cli": [
+        "group",
+        "summary"
+      ],
+      "description": "Read bounded group evidence and aggregates; the caller produces the final summary.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": true,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "conversation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 20
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.search",
+      "mcp": "trove_search",
+      "cli": [
+        "search"
+      ],
+      "description": "Search bounded local evidence with explicit retrieval status and citations.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": true,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "semantic": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ],
+            "default": "auto"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 20
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.context",
+      "mcp": "trove_context",
+      "cli": [
+        "context"
+      ],
+      "description": "Read a bounded context window around one citation.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "citation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "before": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 200,
+            "default": 5
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 200,
+            "default": 5
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "citation"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.profile",
+      "mcp": "trove_profile",
+      "cli": [
+        "profile",
+        "show"
+      ],
+      "description": "Read a bounded cited person or relationship profile.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "target"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.files_list",
+      "mcp": "trove_files_list",
+      "cli": [
+        "files",
+        "list"
+      ],
+      "description": "List bounded file evidence without materializing content.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": true,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "conversation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "media_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 20
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.reply_status",
+      "mcp": "trove_reply_status",
+      "cli": [
+        "reply",
+        "status"
+      ],
+      "description": "Read redacted local reply runtime state and readiness.",
+      "pack": "admin",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.reply_reviews",
+      "mcp": "trove_reply_reviews",
+      "cli": [
+        "reply",
+        "reviews"
+      ],
+      "description": "List bounded pending or decided reply drafts as untrusted evidence.",
+      "pack": "admin",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "stale"
+            ],
+            "default": "pending"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.reply_activity",
+      "mcp": "trove_reply_activity",
+      "cli": [
+        "reply",
+        "activity"
+      ],
+      "description": "List bounded reply runtime activity as untrusted evidence.",
+      "pack": "admin",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.media_fetch",
+      "mcp": "trove_media_fetch",
+      "cli": [
+        "files",
+        "fetch"
+      ],
+      "description": "Materialize one cited media object through a bounded verified path.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "citation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "allow_remote": {
+            "type": "boolean",
+            "default": false
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "citation"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      },
+      "provider_requirement": "media_provider"
+    },
+    {
+      "id": "trove.media_enrich",
+      "mcp": "trove_media_enrich",
+      "cli": [
+        "media",
+        "transcribe"
+      ],
+      "description": "Read cached media understanding or create one bounded durable enrichment operation.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "journaled",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "citation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "transcribe",
+              "annotate"
+            ]
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "citation",
+          "kind"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      },
+      "provider_requirement": "media_provider"
+    },
+    {
+      "id": "trove.operation_status",
+      "mcp": "trove_operation_status",
+      "cli": [
+        "operation",
+        "status"
+      ],
+      "description": "Read one durable operation state and its typed continuation owner.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "minLength": 20
+          }
+        },
+        "required": [
+          "operation_id"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.operation_continue",
+      "mcp": "trove_operation_continue",
+      "cli": [
+        "operation",
+        "continue"
+      ],
+      "description": "Continue an awaiting caller operation with an opaque single-operation token.",
+      "pack": "standard",
+      "risk": "controlled_write",
+      "replay_policy": "journaled",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "minLength": 20
+          },
+          "token": {
+            "type": "string",
+            "minLength": 20
+          },
+          "payload": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "operation_id",
+          "token",
+          "payload"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.profile_build",
+      "mcp": "trove_profile_build",
+      "cli": [
+        "profile",
+        "build"
+      ],
+      "description": "Create a durable cited profile operation.",
+      "pack": "operations",
+      "risk": "controlled_write",
+      "replay_policy": "journaled",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "target"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.files_export",
+      "mcp": "trove_files_export",
+      "cli": [
+        "files",
+        "export"
+      ],
+      "description": "Request an approval-gated export of an exact file selection.",
+      "pack": "operations",
+      "risk": "sensitive_write",
+      "replay_policy": "journaled",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "selection": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "destination": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approval_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "selection",
+          "destination"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.observe_add",
+      "mcp": "trove_observe_add",
+      "cli": [
+        "observe",
+        "add"
+      ],
+      "description": "Add one explicit bounded observation with provenance.",
+      "pack": "operations",
+      "risk": "controlled_write",
+      "replay_policy": "journaled",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 16
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "target",
+          "text",
+          "idempotency_key"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.observe_list",
+      "mcp": "trove_observe_list",
+      "cli": [
+        "observe",
+        "list"
+      ],
+      "description": "List bounded reviewed observations and their citations.",
+      "pack": "operations",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": true,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 20
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.operation_cancel",
+      "mcp": "trove_operation_cancel",
+      "cli": [
+        "operation",
+        "cancel"
+      ],
+      "description": "Cancel one durable operation only while its current stage is cancellable.",
+      "pack": "operations",
+      "risk": "controlled_write",
+      "replay_policy": "idempotent",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "minLength": 20
+          }
+        },
+        "required": [
+          "operation_id"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.approval_request",
+      "mcp": "trove_approval_request",
+      "cli": [
+        "approval",
+        "request"
+      ],
+      "description": "Create a pending request for a precise sensitive payload; never decide it.",
+      "pack": "operations",
+      "risk": "approval_request",
+      "replay_policy": "idempotent",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "danger_class": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payload": {
+            "type": "object"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 16
+          }
+        },
+        "required": [
+          "action",
+          "danger_class",
+          "payload",
+          "idempotency_key"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.approval_status",
+      "mcp": "trove_approval_status",
+      "cli": [
+        "approval",
+        "status"
+      ],
+      "description": "Read pending or terminal approval state without decision authority.",
+      "pack": "operations",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "approval_id": {
+            "type": "string",
+            "minLength": 16
+          }
+        },
+        "required": [
+          "approval_id"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.sync",
+      "mcp": "trove_sync",
+      "cli": [
+        "sync"
+      ],
+      "description": "Incrementally ingest selected source accounts through an installed read provider.",
+      "pack": "admin",
+      "risk": "admin_write",
+      "replay_policy": "journaled",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "account_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32
+          },
+          "full": {
+            "type": "boolean",
+            "default": false
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 16
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "provider_requirement": "read_provider"
+    },
+    {
+      "id": "trove.provider_status",
+      "mcp": "trove_provider_status",
+      "cli": [
+        "provider",
+        "status"
+      ],
+      "description": "List verified installed providers and bounded health metadata.",
+      "pack": "admin",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.provider_reload",
+      "mcp": "trove_provider_reload",
+      "cli": [
+        "provider",
+        "reload"
+      ],
+      "description": "Validate an installed provider then request bounded daemon drain and restart.",
+      "pack": "admin",
+      "risk": "admin_write",
+      "replay_policy": "journaled",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 16
+          }
+        },
+        "required": [
+          "provider_id",
+          "idempotency_key"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.repair",
+      "mcp": "trove_repair",
+      "cli": [
+        "repair",
+        "run"
+      ],
+      "description": "Run one catalog-defined bounded repair with explicit approval when required.",
+      "pack": "admin",
+      "risk": "admin_write",
+      "replay_policy": "journaled",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "repair_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "input": {
+            "type": "object"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 16
+          }
+        },
+        "required": [
+          "repair_id",
+          "input",
+          "idempotency_key"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "id": "trove.diagnostics",
+      "mcp": "trove_diagnostics",
+      "cli": [
+        "doctor"
+      ],
+      "description": "Read redacted runtime, protocol, provider, and Vault health metadata.",
+      "pack": "admin",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "control",
+      "response_budget": 65536,
+      "scoped": false,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  ]
+}

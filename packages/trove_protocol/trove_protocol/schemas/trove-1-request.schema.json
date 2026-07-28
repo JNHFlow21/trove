@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:trove:protocol:1:request",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "protocol": {"const": "trove/1"},
+    "request_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "capability": {"type": "string", "pattern": "^trove\\.[a-z][a-z0-9_]*$"},
+    "input": {"type": "object"},
+    "deadline_ms": {"type": "integer", "minimum": 1},
+    "response_budget": {"type": "integer", "minimum": 1, "maximum": 262144},
+    "vault_identity": {"type": "string", "minLength": 1},
+    "build_hash": {"type": "string", "minLength": 1},
+    "catalog_hash": {"type": "string", "minLength": 1}
+  },
+  "required": ["protocol", "request_id", "capability", "input", "deadline_ms", "response_budget"]
+}

@@ -1,0 +1,66 @@
+[project]
+name = "trove-runtime"
+version = "1.0.0"
+description = "Local private Agent capability runtime"
+requires-python = ">=3.11"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "TROVE contributors" }]
+dependencies = [
+  "cryptography>=42,<50",
+  "mcp>=1.0,<2",
+  "zstandard>=0.23,<1",
+]
+
+[project.optional-dependencies]
+local-asr = [
+  "faster-whisper>=1.1,<2",
+  "silk-python==0.2.6",
+]
+local-vision = [
+  "pyobjc-framework-Cocoa>=10,<12",
+  "pyobjc-framework-Quartz>=10,<12",
+  "pyobjc-framework-Vision>=10,<12",
+]
+local-vlm = [
+  "mlx-vlm>=0.1,<1",
+  "Pillow>=10,<12",
+  "huggingface-hub>=0.23",
+]
+key-capture = [
+  "frida-tools>=12",
+]
+local-embedding = [
+  "sentence-transformers>=5.0,<6",
+  "huggingface-hub>=0.23",
+]
+zvec = [
+  "zvec>=0.5,<0.6",
+]
+cloud-retrieval = [
+  "httpx>=0.27,<1",
+]
+
+[tool.trove]
+privacy_scan = "scripts/privacy_scan.py"
+
+[tool.trove.release]
+protocol = "trove/1"
+artifact_set = ["trove-runtime", "trove-provider-wechat"]
+public_surface = ["mcp", "cli", "skills"]
+official_skills = 6
+promotion_policy = "automated-gates"
+final_manifest = "dist/v1.0.0-release-manifest.json"
+legacy_aliases = false
+
+[project.scripts]
+trove = "trove_cli.main:main"
+trove-mcp = "trove_mcp.server:main"
+troved = "trove_daemon.main:main"
+
+[tool.setuptools.packages.find]
+where = ["packages/trove_protocol", "packages/trove_core", "packages/trove_client", "packages/trove_daemon", "packages/trove_cli", "packages/trove_mcp"]
+include = ["trove_protocol*", "trove_core*", "trove_client*", "trove_daemon*", "trove_cli*", "trove_mcp*"]
+
+[tool.setuptools.package-data]
+trove_protocol = ["schemas/*.json"]

@@ -1,0 +1,74 @@
+{
+  "catalog_sha256": "4d8393bb756fbf97618e4ce328b04c0736dfcca4fe5007ecadd5f42007e03078",
+  "protocol": "trove/1",
+  "schema_version": 1,
+  "skills": [
+    {
+      "capabilities": [
+        "trove.recall",
+        "trove.resolve"
+      ],
+      "cli_fallback": true,
+      "mcp_first": true,
+      "name": "trove-recall",
+      "version": "1.0.0"
+    },
+    {
+      "capabilities": [
+        "trove.group_summary",
+        "trove.resolve"
+      ],
+      "cli_fallback": true,
+      "mcp_first": true,
+      "name": "trove-group-summary",
+      "version": "1.0.0"
+    },
+    {
+      "capabilities": [
+        "trove.search",
+        "trove.context"
+      ],
+      "cli_fallback": true,
+      "mcp_first": true,
+      "name": "trove-search",
+      "version": "1.0.0"
+    },
+    {
+      "capabilities": [
+        "trove.profile",
+        "trove.profile_build",
+        "trove.operation_status",
+        "trove.operation_continue"
+      ],
+      "cli_fallback": true,
+      "mcp_first": true,
+      "name": "trove-profile",
+      "version": "1.0.0"
+    },
+    {
+      "capabilities": [
+        "trove.files_list",
+        "trove.media_fetch",
+        "trove.files_export",
+        "trove.approval_request",
+        "trove.approval_status"
+      ],
+      "cli_fallback": true,
+      "mcp_first": true,
+      "name": "trove-file-recall",
+      "version": "1.0.0"
+    },
+    {
+      "capabilities": [
+        "trove.media_fetch",
+        "trove.media_enrich",
+        "trove.operation_status",
+        "trove.operation_continue"
+      ],
+      "cli_fallback": true,
+      "mcp_first": true,
+      "name": "trove-media-enrichment",
+      "version": "1.0.0"
+    }
+  ]
+}
