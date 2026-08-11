@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +13,37 @@ SPEC.loader.exec_module(MODULE)
 
 
 class RepositoryMetricsTests(unittest.TestCase):
+    def test_actions_uses_dated_aggregate_when_traffic_api_is_forbidden(self) -> None:
+        def fake_request(path, _credential, *, accept="application/vnd.github+json"):
+            if path == "/repos/Example/project":
+                return ({
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "stargazers_count": 1,
+                    "forks_count": 2,
+                }, {})
+            if path.endswith("/traffic/views"):
+                raise MODULE.HTTPError(path, 403, "Forbidden", {}, None)
+            if path.endswith("/commits?per_page=1"):
+                return ([{"sha": "example"}], {})
+            if "/stargazers?" in path:
+                return ([{"starred_at": "2026-02-01T00:00:00Z"}], {})
+            self.fail(f"unexpected request: {path} ({accept})")
+
+        fallback = {
+            "unique_visitors_14d": 7,
+            "views_14d": 9,
+            "unique_cloners_14d": 4,
+            "clones_14d": 6,
+            "traffic_as_of": "2026-08-09T00:00:00Z",
+        }
+        with patch.object(MODULE, "_request_json", side_effect=fake_request):
+            snapshot = MODULE.fetch_snapshot("Example/project", "workflow-credential", fallback)
+
+        self.assertFalse(snapshot["traffic_live"])
+        self.assertEqual(snapshot["unique_visitors_14d"], 7)
+        self.assertEqual(snapshot["unique_cloners_14d"], 4)
+        self.assertEqual(snapshot["traffic_as_of"], "2026-08-09T00:00:00Z")
+
     def test_svg_is_white_privacy_safe_and_contains_requested_metrics(self) -> None:
         svg = MODULE.render_svg({
             "repository": "Example/project",
@@ -24,6 +56,8 @@ class RepositoryMetricsTests(unittest.TestCase):
             "views_14d": 9,
             "unique_cloners_14d": 4,
             "clones_14d": 6,
+            "traffic_as_of": "2026-08-09T00:00:00Z",
+            "traffic_live": False,
             "starred_at": [
                 "2026-02-01T00:00:00Z",
                 "2026-04-01T00:00:00Z",
@@ -37,6 +71,7 @@ class RepositoryMetricsTests(unittest.TestCase):
         self.assertIn("Unique cloners", svg)
         self.assertIn("Total clones", svg)
         self.assertEqual(svg.count('class="metric-period">14d'), 3)
+        self.assertIn("GitHub Traffic owner snapshot: 2026-08-09", svg)
         self.assertIn('fill: #ffffff', svg)
         self.assertIn('class="curve"', svg)
         self.assertNotIn("GITHUB_TOKEN", svg)

@@ -153,7 +153,7 @@ gitleaks git --redact
   </a>
 </p>
 
-<sub>每次获得新 Star 后自动刷新，并每周定时更新。GitHub Traffic 使用仓库所有者可见的 14 天滚动窗口；README 中不嵌入任何长期 Token。</sub>
+<sub>Star、Fork 与 Commit 会在每次获得新 Star 后及每周自动刷新。由于 GitHub 不允许 Actions Token 读取仓库 Traffic，流量卡片使用图中注明日期的仓库所有者聚合快照；README 中不嵌入任何长期 Token。</sub>
 
 ## 文档
 

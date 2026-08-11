@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 from typing import Any
+from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
@@ -34,7 +35,11 @@ def _request_json(path: str, token: str, *, accept: str = "application/vnd.githu
         return json.load(response), response.headers
 
 
-def fetch_snapshot(repository: str, token: str) -> dict[str, Any]:
+def fetch_snapshot(
+    repository: str,
+    token: str,
+    traffic_fallback: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if not token:
         raise RuntimeError("GITHUB_TOKEN is required when --snapshot is not supplied")
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
@@ -42,8 +47,40 @@ def fetch_snapshot(repository: str, token: str) -> dict[str, Any]:
 
     encoded = "/".join(quote(part, safe="") for part in repository.split("/", 1))
     repo, _ = _request_json(f"/repos/{encoded}", token)
-    views, _ = _request_json(f"/repos/{encoded}/traffic/views", token)
-    clones, _ = _request_json(f"/repos/{encoded}/traffic/clones", token)
+    generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    traffic_live = True
+    try:
+        views, _ = _request_json(f"/repos/{encoded}/traffic/views", token)
+        clones, _ = _request_json(f"/repos/{encoded}/traffic/clones", token)
+        traffic = {
+            "unique_visitors_14d": int(views["uniques"]),
+            "views_14d": int(views["count"]),
+            "unique_cloners_14d": int(clones["uniques"]),
+            "clones_14d": int(clones["count"]),
+            "traffic_as_of": generated_at,
+        }
+    except HTTPError as error:
+        error.close()
+        if error.code != 403 or traffic_fallback is None:
+            raise
+        required = {
+            "unique_visitors_14d",
+            "views_14d",
+            "unique_cloners_14d",
+            "clones_14d",
+            "traffic_as_of",
+        }
+        missing = sorted(required - traffic_fallback.keys())
+        if missing:
+            raise ValueError(f"traffic snapshot is missing: {', '.join(missing)}") from error
+        traffic_live = False
+        traffic = {
+            "unique_visitors_14d": int(traffic_fallback["unique_visitors_14d"]),
+            "views_14d": int(traffic_fallback["views_14d"]),
+            "unique_cloners_14d": int(traffic_fallback["unique_cloners_14d"]),
+            "clones_14d": int(traffic_fallback["clones_14d"]),
+            "traffic_as_of": str(traffic_fallback["traffic_as_of"]),
+        }
     _, commit_headers = _request_json(f"/repos/{encoded}/commits?per_page=1", token)
 
     link = commit_headers.get("Link", "")
@@ -70,14 +107,12 @@ def fetch_snapshot(repository: str, token: str) -> dict[str, Any]:
     return {
         "repository": repository,
         "created_at": repo["created_at"],
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "generated_at": generated_at,
         "stars": int(repo["stargazers_count"]),
         "forks": int(repo["forks_count"]),
         "commits": commit_count,
-        "unique_visitors_14d": int(views["uniques"]),
-        "views_14d": int(views["count"]),
-        "unique_cloners_14d": int(clones["uniques"]),
-        "clones_14d": int(clones["count"]),
+        **traffic,
+        "traffic_live": traffic_live,
         "starred_at": sorted(starred_at),
     }
 
@@ -171,6 +206,11 @@ def render_svg(snapshot: dict[str, Any]) -> str:
         empty_note = '<text x="334" y="292" text-anchor="middle" class="empty">Waiting for the first star</text>'
 
     updated = generated.strftime("%Y-%m-%d UTC")
+    traffic_as_of = _parse_time(str(snapshot.get("traffic_as_of", snapshot["generated_at"])))
+    if snapshot.get("traffic_live", False):
+        traffic_note = "GitHub Traffic: rolling 14-day owner view"
+    else:
+        traffic_note = f"GitHub Traffic owner snapshot: {traffic_as_of.strftime('%Y-%m-%d')}"
     start_label = created.strftime("%Y-%m")
     end_label = generated.strftime("%Y-%m")
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560" role="img" aria-labelledby="title desc">
@@ -210,7 +250,7 @@ def render_svg(snapshot: dict[str, Any]) -> str:
   <text x="{chart_x:.1f}" y="{baseline + 24:.1f}" class="axis">{start_label}</text>
   <text x="{chart_x + chart_w:.1f}" y="{baseline + 24:.1f}" text-anchor="end" class="axis">{end_label}</text>
   {''.join(cards)}
-  <text x="54" y="520" class="footer">Auto-refreshed on stars and weekly · GitHub Traffic uses the rolling 14-day owner view · Updated {updated}</text>
+  <text x="54" y="520" class="footer">Stars, forks, and commits auto-refresh · {traffic_note} · Updated {updated}</text>
 </svg>
 '''
 
@@ -220,12 +260,22 @@ def main() -> int:
     parser.add_argument("--repository", required=True, help="GitHub owner/name")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--snapshot", type=Path, help="Render from a local JSON snapshot instead of the API")
+    parser.add_argument(
+        "--traffic-snapshot",
+        type=Path,
+        help="Aggregate owner snapshot used only when GitHub Actions cannot read the Traffic API",
+    )
     args = parser.parse_args()
 
     if args.snapshot:
         snapshot = json.loads(args.snapshot.read_text())
     else:
-        snapshot = fetch_snapshot(args.repository, os.environ.get("GITHUB_TOKEN", ""))
+        traffic_fallback = json.loads(args.traffic_snapshot.read_text()) if args.traffic_snapshot else None
+        snapshot = fetch_snapshot(
+            args.repository,
+            os.environ.get("GITHUB_TOKEN", ""),
+            traffic_fallback,
+        )
     if snapshot.get("repository") != args.repository:
         raise ValueError("snapshot repository does not match --repository")
 
