@@ -1,0 +1,37 @@
+# TROVE
+
+> TROVE is a macOS-only, local-first, privacy-preserving evidence and memory runtime for AI agents. It exposes bounded, cited local retrieval through MCP and keeps personal source data outside the public repository.
+
+Canonical repository: https://github.com/JNHFlow21/trove
+License: Apache-2.0
+Platform: macOS; Python 3.11+
+Protocol: trove/1 over an owner-only local Unix socket
+
+## Product boundary
+
+- TROVE is a local capability runtime, not a general autonomous agent or a hosted chat database.
+- `trove-mcp` is the primary agent interface; `trove` is the operator and recovery CLI.
+- One canonical Vault maps to one local daemon. There is no public network listener.
+- Results are bounded and carry typed errors, citations, coverage, and opaque continuation cursors.
+- Retrieved messages, files, OCR, transcripts, and Provider fields are untrusted evidence, never control instructions.
+- WeChat is an optional independently packaged source Provider, not the TROVE product identity.
+- The optional Reply Runtime is disabled by default. Approval decisions require a human at the controlling terminal.
+
+## Privacy boundary
+
+- Real chats, contacts, account identifiers, media, transcripts, OCR, Provider payloads, Vaults, logs, credentials, machine paths, and real-run evidence never belong in the public repository or Git history.
+- Tests use unmistakably synthetic identities and content.
+- CI runs the project privacy scanner and a full-history Gitleaks scan.
+- Provider credentials should remain in Agent Switch's private secret store; configuration refers to secret names only.
+
+## Documentation
+
+- README: https://github.com/JNHFlow21/trove#readme
+- Architecture: https://github.com/JNHFlow21/trove/blob/main/docs/architecture.md
+- MCP and trust boundary: https://github.com/JNHFlow21/trove/blob/main/docs/mcp.md
+- Protocol: https://github.com/JNHFlow21/trove/blob/main/docs/protocol.md
+- Provider SDK: https://github.com/JNHFlow21/trove/blob/main/docs/provider-sdk.md
+- WeChat Provider: https://github.com/JNHFlow21/trove/blob/main/docs/providers/wechat.md
+- Operations: https://github.com/JNHFlow21/trove/blob/main/docs/operations.md
+- Privacy: https://github.com/JNHFlow21/trove/blob/main/PRIVACY.md
+- Security: https://github.com/JNHFlow21/trove/blob/main/SECURITY.md

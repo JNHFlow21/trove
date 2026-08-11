@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import posixpath
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
@@ -23,6 +24,7 @@ ACTIVE_DOCS = (
     'docs/providers/wechat.md',
     'docs/testing.md',
     'docs/release.md',
+    'docs/roadmap.md',
 )
 HISTORICAL_PREFIXES = ('docs/perf/', 'docs/plans/', 'docs/release-notes/')
 REMOVED_ACTIVE_DOCS = frozenset({
@@ -50,7 +52,7 @@ FENCE = re.compile(r'```(?:bash|sh)\n(.*?)```', re.DOTALL)
 
 
 def repository_snapshot() -> dict[str, str]:
-    needed = set(ACTIVE_DOCS) | {'skills/manifest.json'}
+    needed = set(ACTIVE_DOCS) | {'README.zh-CN.md', 'skills/manifest.json'}
     needed.update({
         f'skills/{name}/SKILL.md'
         for name in (
@@ -91,7 +93,7 @@ def _relative_link(source: str, target: str) -> str:
     clean = target.split('#', 1)[0]
     if source == 'README.md':
         return PurePosixPath(clean).as_posix()
-    return (PurePosixPath(source).parent / clean).as_posix()
+    return posixpath.normpath((PurePosixPath(source).parent / clean).as_posix())
 
 
 class DocumentationContractTests(unittest.TestCase):
@@ -119,17 +121,22 @@ class DocumentationContractTests(unittest.TestCase):
 
     def test_readme_is_ordered_artifact_walkthrough(self):
         readme = self.active['README.md']
-        headings = ('## Install', '## Connect MCP', '## First call', '## Failure path')
+        headings = (
+            '## Why TROVE', '## Architecture', '## Core capabilities',
+            '## Quick start from source', '## Privacy and safety boundary',
+            '## Repository map', '## Documentation',
+        )
         positions = [readme.index(item) for item in headings]
         self.assertEqual(positions, sorted(positions))
         for token in (
-            'trove_runtime-1.0.0', 'trove version', 'trove-mcp',
-            'trove --vault "$TROVE_VAULT_ROOT" doctor', 'trove_recall',
-            'error.retryable', 'approval_required',
+            'trove-mcp', '.venv/bin/trove --vault "$TROVE_VAULT_ROOT" doctor',
+            'trove_recall', 'error.retryable', 'controlling terminal',
+            'Unique Git cloners', 'packages/trove_protocol',
         ):
             self.assertIn(token, readme)
-        for source_detail in ('cd ', './scripts/', '-m trove_', 'packages/'):
-            self.assertNotIn(source_detail, readme)
+        chinese = self.files['README.zh-CN.md']
+        self.assertIn('<strong>简体中文</strong>', chinese)
+        self.assertIn('README.zh-CN.md', readme)
 
     def test_generated_reference_is_byte_identical_to_catalog(self):
         self.assertEqual(
@@ -141,14 +148,17 @@ class DocumentationContractTests(unittest.TestCase):
         for source, text in self.active.items():
             for target in LINK.findall(text):
                 with self.subTest(source=source, target=target):
-                    self.assertFalse(target.startswith(('http:', 'https:', '/')))
+                    if target.startswith(('http:', 'https:')):
+                        continue
+                    self.assertFalse(target.startswith('/'))
                     resolved = _relative_link(source, target)
                     self.assertIn(resolved, self.files)
 
     def test_command_examples_use_current_entrypoints(self):
         allowed = {
             'python3', 'export', 'mkdir', 'chmod', 'trove', 'trove-mcp',
-            'agent-switch', './scripts/trove-python',
+            'agent-switch', './scripts/trove-python', '.venv/bin/trove',
+            'git', 'cd', 'bash', 'gitleaks',
         }
         for name, content in self.active.items():
             for block in FENCE.findall(content):
@@ -156,7 +166,10 @@ class DocumentationContractTests(unittest.TestCase):
                     line = raw.strip()
                     if not line or line.startswith(('#', '--')):
                         continue
-                    first = line.split()[0]
+                    parts = line.split()
+                    while parts and re.fullmatch(r'[A-Z][A-Z0-9_]*=.*', parts[0]):
+                        parts.pop(0)
+                    first = parts[0]
                     if first.startswith('"$HOME/'):
                         first = 'python3'
                     with self.subTest(name=name, line=line):
@@ -177,7 +190,7 @@ class DocumentationContractTests(unittest.TestCase):
             versions = set(re.findall(r'trove/[0-9]+', text))
             with self.subTest(name=name):
                 self.assertLessEqual(versions, {'trove/1'})
-        self.assertLessEqual(len(self.active['README.md'].encode()), 4_000)
+        self.assertLessEqual(len(self.active['README.md'].encode()), 12_000)
         self.assertLessEqual(len(self.active['docs/mcp.md'].encode()), 4_000)
 
         manifest = json.loads(self.files['skills/manifest.json'])

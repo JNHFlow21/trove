@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If TROVE supports your work, please cite the software using these metadata."
+title: "TROVE"
+type: software
+authors:
+  - name: "TROVE contributors"
+repository-code: "https://github.com/JNHFlow21/trove"
+url: "https://github.com/JNHFlow21/trove"
+license: Apache-2.0
+version: 1.0.0
+date-released: 2026-08-09
+keywords:
+  - agent memory
+  - MCP
+  - local-first
+  - privacy-preserving
+  - evidence retrieval
+  - WeChat
