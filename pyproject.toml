@@ -1,16 +1,33 @@
 [project]
 name = "trove-runtime"
 version = "1.0.0"
-description = "Local private Agent capability runtime"
+description = "Local-first, privacy-preserving memory and cited evidence runtime for AI agents"
 requires-python = ">=3.11"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [{ name = "TROVE contributors" }]
+keywords = ["agent-memory", "mcp", "local-first", "privacy", "evidence-retrieval", "wechat"]
+classifiers = [
+  "Environment :: MacOS X",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: MacOS :: MacOS X",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Database :: Database Engines/Servers",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
   "cryptography>=42,<50",
   "mcp>=1.0,<2",
   "zstandard>=0.23,<1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/JNHFlow21/trove"
+Documentation = "https://github.com/JNHFlow21/trove#readme"
+Issues = "https://github.com/JNHFlow21/trove/issues"
+Repository = "https://github.com/JNHFlow21/trove"
 
 [project.optional-dependencies]
 local-asr = [
