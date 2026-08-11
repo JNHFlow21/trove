@@ -145,15 +145,15 @@ gitleaks git --redact
 
 <sub>数据快照日期：2026-08-10。GitHub 只向仓库维护者提供克隆与独立访客数据，因此这里采用注明日期的透明快照，而不是需要私密 Token 的公开徽章。</sub>
 
-### Star 增长曲线
+### 仓库增长曲线
 
 <p align="center">
-  <a href="https://www.star-history.com/#JNHFlow21/trove&Date">
-    <img width="800" src="https://api.star-history.com/svg?repos=JNHFlow21/trove&type=Date" alt="TROVE Star 增长曲线">
+  <a href="https://github.com/JNHFlow21/trove/stargazers">
+    <img width="800" src="https://raw.githubusercontent.com/JNHFlow21/trove/metrics/repository-metrics.svg" alt="TROVE 仓库增长与流量指标">
   </a>
 </p>
 
-<sub>这是由 Star History 提供的动态白底增长曲线，读取 GitHub 公开 Star 数据；随着项目获得更多 Star，曲线会自动变得更完整。</sub>
+<sub>每次获得新 Star 后自动刷新，并每周定时更新。GitHub Traffic 使用仓库所有者可见的 14 天滚动窗口；README 中不嵌入任何长期 Token。</sub>
 
 ## 文档
 
