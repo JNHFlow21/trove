@@ -124,7 +124,8 @@ class DocumentationContractTests(unittest.TestCase):
         headings = (
             '## Why TROVE', '## Architecture', '## Core capabilities',
             '## Quick start from source', '## Privacy and safety boundary',
-            '## Repository map', '## Documentation',
+            '## Repository map', '## Documentation', '## Project activity',
+            '## Contributing', '## License',
         )
         positions = [readme.index(item) for item in headings]
         self.assertEqual(positions, sorted(positions))
@@ -142,6 +143,9 @@ class DocumentationContractTests(unittest.TestCase):
         self.assertIn(chart, chinese)
         self.assertNotIn('api.star-history.com', readme)
         self.assertNotIn('api.star-history.com', chinese)
+        chinese_headings = ('## 文档', '## 项目数据', '## 参与贡献', '## 许可证')
+        chinese_positions = [chinese.index(item) for item in chinese_headings]
+        self.assertEqual(chinese_positions, sorted(chinese_positions))
 
     def test_generated_reference_is_byte_identical_to_catalog(self):
         self.assertEqual(

@@ -134,27 +134,6 @@ gitleaks git --redact
 | `skills` | 面向结果的 Agent Skills 与清单 |
 | `scripts` | 构建、测试、隐私、发行、性能和迁移门禁 |
 
-## 项目数据
-
-| 公开指标 | 实时数据或最近一次维护者可见数据 |
-| --- | ---: |
-| Star / Fork / Commit | 见上方实时徽章 |
-| README 访问量 | 见上方公开计数器；可能包含机器人和重复访问 |
-| 仓库独立访客 | GitHub Traffic 最近 14 天滚动窗口内为 **0** |
-| 独立克隆者 | 最近 14 天滚动窗口内为 **15**（共 **21** 次克隆） |
-
-<sub>数据快照日期：2026-08-10。GitHub 只向仓库维护者提供克隆与独立访客数据，因此这里采用注明日期的透明快照，而不是需要私密 Token 的公开徽章。</sub>
-
-### 仓库增长曲线
-
-<p align="center">
-  <a href="https://github.com/JNHFlow21/trove/stargazers">
-    <img width="800" src="https://raw.githubusercontent.com/JNHFlow21/trove/metrics/repository-metrics.svg" alt="TROVE 仓库增长与流量指标">
-  </a>
-</p>
-
-<sub>Star、Fork 与 Commit 会在每次获得新 Star 后及每周自动刷新。由于 GitHub 不允许 Actions Token 读取仓库 Traffic，流量卡片使用图中注明日期的仓库所有者聚合快照；README 中不嵌入任何长期 Token。</sub>
-
 ## 文档
 
 - [架构](docs/architecture.md)
@@ -167,6 +146,27 @@ gitleaks git --redact
 - [测试](docs/testing.md)
 - [发行模型](docs/release.md)
 - [路线图](docs/roadmap.md)
+
+## 项目数据
+
+| 公开指标 | 实时数据或最近一次维护者可见数据 |
+| --- | ---: |
+| Star / Fork / Commit | 见上方实时徽章 |
+| README 访问量 | 见上方公开计数器；可能包含机器人和重复访问 |
+| 仓库独立访客 | GitHub Traffic 最近 14 天滚动窗口内为 **0** |
+| 独立克隆者 | 最近 14 天滚动窗口内为 **15**（共 **21** 次克隆） |
+
+<sub>数据快照日期：2026-08-10。GitHub 只向仓库维护者提供克隆与独立访客数据，因此这里采用注明日期的透明快照，而不是需要私密 Token 的公开徽章。</sub>
+
+### 克隆趋势
+
+<p align="center">
+  <a href="https://github.com/JNHFlow21/trove">
+    <img width="800" src="https://raw.githubusercontent.com/JNHFlow21/trove/metrics/repository-metrics.svg" alt="TROVE 最近 14 天克隆趋势与仓库指标">
+  </a>
+</p>
+
+<sub>曲线展示 GitHub Traffic 最近 14 天滚动窗口内的累计克隆次数。Traffic 序列采用注明日期的仓库所有者聚合快照；侧边的 Star、Fork 与 Commit 会在每次获得新 Star 后及每周自动刷新。README 中不嵌入任何长期 Token。</sub>
 
 ## 参与贡献
 

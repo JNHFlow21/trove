@@ -25,8 +25,6 @@ class RepositoryMetricsTests(unittest.TestCase):
                 raise MODULE.HTTPError(path, 403, "Forbidden", {}, None)
             if path.endswith("/commits?per_page=1"):
                 return ([{"sha": "example"}], {})
-            if "/stargazers?" in path:
-                return ([{"starred_at": "2026-02-01T00:00:00Z"}], {})
             self.fail(f"unexpected request: {path} ({accept})")
 
         fallback = {
@@ -34,6 +32,11 @@ class RepositoryMetricsTests(unittest.TestCase):
             "views_14d": 9,
             "unique_cloners_14d": 4,
             "clones_14d": 6,
+            "clone_series_14d": [
+                {"timestamp": "2026-08-07T00:00:00Z", "count": 2},
+                {"timestamp": "2026-08-08T00:00:00Z", "count": 1},
+                {"timestamp": "2026-08-09T00:00:00Z", "count": 3},
+            ],
             "traffic_as_of": "2026-08-09T00:00:00Z",
         }
         with patch.object(MODULE, "_request_json", side_effect=fake_request):
@@ -42,6 +45,7 @@ class RepositoryMetricsTests(unittest.TestCase):
         self.assertFalse(snapshot["traffic_live"])
         self.assertEqual(snapshot["unique_visitors_14d"], 7)
         self.assertEqual(snapshot["unique_cloners_14d"], 4)
+        self.assertEqual(sum(item["count"] for item in snapshot["clone_series_14d"]), 6)
         self.assertEqual(snapshot["traffic_as_of"], "2026-08-09T00:00:00Z")
 
     def test_svg_is_white_privacy_safe_and_contains_requested_metrics(self) -> None:
@@ -56,17 +60,18 @@ class RepositoryMetricsTests(unittest.TestCase):
             "views_14d": 9,
             "unique_cloners_14d": 4,
             "clones_14d": 6,
+            "clone_series_14d": [
+                {"timestamp": "2026-08-07T00:00:00Z", "count": 2},
+                {"timestamp": "2026-08-08T00:00:00Z", "count": 1},
+                {"timestamp": "2026-08-09T00:00:00Z", "count": 3},
+            ],
             "traffic_as_of": "2026-08-09T00:00:00Z",
             "traffic_live": False,
-            "starred_at": [
-                "2026-02-01T00:00:00Z",
-                "2026-04-01T00:00:00Z",
-                "2026-07-01T00:00:00Z",
-            ],
         })
 
         self.assertIn("Repository Pulse", svg)
-        self.assertIn("Stars over time", svg)
+        self.assertIn("Total clones over time · rolling 14 days", svg)
+        self.assertNotIn("Stars over time", svg)
         self.assertIn("Unique visitors", svg)
         self.assertIn("Unique cloners", svg)
         self.assertIn("Total clones", svg)

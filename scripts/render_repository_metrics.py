@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html import escape
 import json
 import math
@@ -57,6 +57,14 @@ def fetch_snapshot(
             "views_14d": int(views["count"]),
             "unique_cloners_14d": int(clones["uniques"]),
             "clones_14d": int(clones["count"]),
+            "clone_series_14d": [
+                {
+                    "timestamp": str(item["timestamp"]),
+                    "count": int(item["count"]),
+                }
+                for item in clones.get("clones", [])
+                if isinstance(item, dict) and "timestamp" in item and "count" in item
+            ],
             "traffic_as_of": generated_at,
         }
     except HTTPError as error:
@@ -68,6 +76,7 @@ def fetch_snapshot(
             "views_14d",
             "unique_cloners_14d",
             "clones_14d",
+            "clone_series_14d",
             "traffic_as_of",
         }
         missing = sorted(required - traffic_fallback.keys())
@@ -79,6 +88,7 @@ def fetch_snapshot(
             "views_14d": int(traffic_fallback["views_14d"]),
             "unique_cloners_14d": int(traffic_fallback["unique_cloners_14d"]),
             "clones_14d": int(traffic_fallback["clones_14d"]),
+            "clone_series_14d": list(traffic_fallback["clone_series_14d"]),
             "traffic_as_of": str(traffic_fallback["traffic_as_of"]),
         }
     _, commit_headers = _request_json(f"/repos/{encoded}/commits?per_page=1", token)
@@ -86,23 +96,6 @@ def fetch_snapshot(
     link = commit_headers.get("Link", "")
     last_page = re.search(r"[?&]page=(\d+)[^>]*>; rel=\"last\"", link)
     commit_count = int(last_page.group(1)) if last_page else 1
-
-    starred_at: list[str] = []
-    page = 1
-    while True:
-        entries, _ = _request_json(
-            f"/repos/{encoded}/stargazers?per_page=100&page={page}",
-            token,
-            accept="application/vnd.github.star+json",
-        )
-        starred_at.extend(
-            item["starred_at"]
-            for item in entries
-            if isinstance(item, dict) and isinstance(item.get("starred_at"), str)
-        )
-        if len(entries) < 100:
-            break
-        page += 1
 
     return {
         "repository": repository,
@@ -113,7 +106,6 @@ def fetch_snapshot(
         "commits": commit_count,
         **traffic,
         "traffic_live": traffic_live,
-        "starred_at": sorted(starred_at),
     }
 
 
@@ -131,39 +123,45 @@ def _compact(value: int) -> str:
 
 def render_svg(snapshot: dict[str, Any]) -> str:
     repository = escape(str(snapshot["repository"]))
-    created = _parse_time(str(snapshot["created_at"]))
     generated = _parse_time(str(snapshot["generated_at"]))
-    if generated <= created:
-        generated = created.replace(microsecond=0)
-
+    traffic_as_of = _parse_time(str(snapshot.get("traffic_as_of", snapshot["generated_at"])))
     stars = max(0, int(snapshot["stars"]))
-    star_dates = sorted(
-        date for date in (_parse_time(str(value)) for value in snapshot.get("starred_at", []))
-        if created <= date <= generated
+    total_clones = max(0, int(snapshot["clones_14d"]))
+    clone_series = sorted(
+        (
+            _parse_time(str(item["timestamp"])),
+            max(0, int(item["count"])),
+        )
+        for item in snapshot.get("clone_series_14d", [])
+        if isinstance(item, dict) and "timestamp" in item and "count" in item
     )
+    chart_start = clone_series[0][0] if clone_series else traffic_as_of - timedelta(days=13)
+    chart_end = clone_series[-1][0] if clone_series else traffic_as_of
+    if chart_end <= chart_start:
+        chart_end = chart_start + timedelta(days=1)
 
     chart_x, chart_y, chart_w, chart_h = 64.0, 150.0, 540.0, 292.0
     baseline = chart_y + chart_h
-    seconds = max((generated - created).total_seconds(), 1.0)
-    y_max = max(stars, 1)
+    seconds = max((chart_end - chart_start).total_seconds(), 1.0)
+    series_total = sum(count for _, count in clone_series)
+    y_max = max(total_clones, series_total, 1)
 
     def x_for(date: datetime) -> float:
-        return chart_x + chart_w * max(0.0, min(1.0, (date - created).total_seconds() / seconds))
+        return chart_x + chart_w * max(0.0, min(1.0, (date - chart_start).total_seconds() / seconds))
 
     def y_for(value: int) -> float:
         return baseline - chart_h * max(0.0, min(1.0, value / y_max))
 
     path = [f"M {chart_x:.1f} {y_for(0):.1f}"]
-    count = 0
-    for date in star_dates:
+    cumulative = 0
+    for date, count in clone_series:
         x = x_for(date)
-        path.append(f"L {x:.1f} {y_for(count):.1f}")
-        count += 1
-        path.append(f"L {x:.1f} {y_for(count):.1f}")
-    if count < stars:
-        path.append(f"L {chart_x + chart_w:.1f} {y_for(stars):.1f}")
-    else:
-        path.append(f"L {chart_x + chart_w:.1f} {y_for(count):.1f}")
+        path.append(f"L {x:.1f} {y_for(cumulative):.1f}")
+        cumulative += count
+        path.append(f"L {x:.1f} {y_for(cumulative):.1f}")
+    if cumulative < total_clones:
+        cumulative = total_clones
+    path.append(f"L {chart_x + chart_w:.1f} {y_for(cumulative):.1f}")
     line_path = " ".join(path)
     area_path = f"{line_path} L {chart_x + chart_w:.1f} {baseline:.1f} Z"
 
@@ -202,20 +200,19 @@ def render_svg(snapshot: dict[str, Any]) -> str:
         )
 
     empty_note = ""
-    if stars == 0:
-        empty_note = '<text x="334" y="292" text-anchor="middle" class="empty">Waiting for the first star</text>'
+    if total_clones == 0:
+        empty_note = '<text x="334" y="292" text-anchor="middle" class="empty">No clones in this 14-day window</text>'
 
     updated = generated.strftime("%Y-%m-%d UTC")
-    traffic_as_of = _parse_time(str(snapshot.get("traffic_as_of", snapshot["generated_at"])))
     if snapshot.get("traffic_live", False):
         traffic_note = "GitHub Traffic: rolling 14-day owner view"
     else:
         traffic_note = f"GitHub Traffic owner snapshot: {traffic_as_of.strftime('%Y-%m-%d')}"
-    start_label = created.strftime("%Y-%m")
-    end_label = generated.strftime("%Y-%m")
+    start_label = chart_start.strftime("%Y-%m-%d")
+    end_label = chart_end.strftime("%Y-%m-%d")
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560" role="img" aria-labelledby="title desc">
   <title id="title">{repository} repository metrics</title>
-  <desc id="desc">Star growth curve with stars, forks, commits, visitors, cloners, and clone totals.</desc>
+  <desc id="desc">Cumulative clone curve for the rolling 14-day Traffic window with stars, forks, commits, visitors, cloners, and clone totals.</desc>
   <style>
     .background {{ fill: #ffffff; }}
     .outline {{ fill: none; stroke: #171717; stroke-width: 2.4; }}
@@ -239,8 +236,8 @@ def render_svg(snapshot: dict[str, Any]) -> str:
   <rect class="outline" x="12" y="12" width="936" height="536" rx="22"/>
   <text x="54" y="61" class="title">Repository Pulse</text>
   <text x="54" y="88" class="subtitle">{repository} · privacy-safe public activity</text>
-  <path d="M 844 47 l 8 16 18 3 -13 12 3 18 -16 -9 -16 9 3 -18 -13 -12 18 -3 z" fill="#18a558" opacity=".9"/>
-  <text x="64" y="128" class="section">Stars over time</text>
+  <path d="M 844 45 v34 m-13 -13 13 13 13 -13 M 825 92 h38" fill="none" stroke="#18a558" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="64" y="128" class="section">Total clones over time · rolling 14 days</text>
   {''.join(grid)}
   <line x1="{chart_x:.1f}" y1="{baseline:.1f}" x2="{chart_x + chart_w:.1f}" y2="{baseline:.1f}" class="outline"/>
   <path d="{area_path}" class="area"/>
