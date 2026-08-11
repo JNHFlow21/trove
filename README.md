@@ -170,27 +170,6 @@ The scanners are guardrails, not a substitute for human review. See
 | `skills` | Outcome-oriented agent Skills and generated manifest |
 | `scripts` | Build, test, privacy, release, benchmark, and migration gates |
 
-## Project activity
-
-| Public signal | Live or latest owner-visible value |
-| --- | ---: |
-| Stars / forks / commits | Live badges above |
-| README visits | Public counter above; may include bots and repeat visits |
-| Unique repository visitors | **0** in the rolling 14-day GitHub Traffic window |
-| Unique Git cloners | **15** (**21** total clones) in the rolling 14-day window |
-
-<sub>Traffic snapshot: 2026-08-10. GitHub exposes clone and unique-visitor analytics only to maintainers, so those values are a dated, transparent snapshot rather than a token-backed public badge.</sub>
-
-### Repository growth
-
-<p align="center">
-  <a href="https://github.com/JNHFlow21/trove/stargazers">
-    <img width="800" src="https://raw.githubusercontent.com/JNHFlow21/trove/metrics/repository-metrics.svg" alt="TROVE repository growth and traffic metrics">
-  </a>
-</p>
-
-<sub>Stars, forks, and commits refresh after every new star and once a week. Traffic cards use the dated aggregate owner snapshot shown in the chart because GitHub does not grant its Actions token access to repository Traffic. No long-lived token is embedded in this README.</sub>
-
 ## Documentation
 
 - [Architecture](docs/architecture.md)
@@ -203,6 +182,27 @@ The scanners are guardrails, not a substitute for human review. See
 - [Testing](docs/testing.md)
 - [Release model](docs/release.md)
 - [Roadmap](docs/roadmap.md)
+
+## Project activity
+
+| Public signal | Live or latest owner-visible value |
+| --- | ---: |
+| Stars / forks / commits | Live badges above |
+| README visits | Public counter above; may include bots and repeat visits |
+| Unique repository visitors | **0** in the rolling 14-day GitHub Traffic window |
+| Unique Git cloners | **15** (**21** total clones) in the rolling 14-day window |
+
+<sub>Traffic snapshot: 2026-08-10. GitHub exposes clone and unique-visitor analytics only to maintainers, so those values are a dated, transparent snapshot rather than a token-backed public badge.</sub>
+
+### Clone activity
+
+<p align="center">
+  <a href="https://github.com/JNHFlow21/trove">
+    <img width="800" src="https://raw.githubusercontent.com/JNHFlow21/trove/metrics/repository-metrics.svg" alt="TROVE rolling 14-day clone activity and repository metrics">
+  </a>
+</p>
+
+<sub>The curve shows cumulative clones inside GitHub's rolling 14-day Traffic window. The Traffic series is a dated aggregate owner snapshot; stars, forks, and commits in the side cards refresh after every new star and weekly. No long-lived token is embedded in this README.</sub>
 
 ## Contributing
 
