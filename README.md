@@ -181,6 +181,16 @@ The scanners are guardrails, not a substitute for human review. See
 
 <sub>Traffic snapshot: 2026-08-10. GitHub exposes clone and unique-visitor analytics only to maintainers, so those values are a dated, transparent snapshot rather than a token-backed public badge.</sub>
 
+### Star history
+
+<p align="center">
+  <a href="https://www.star-history.com/#JNHFlow21/trove&Date">
+    <img width="800" src="https://api.star-history.com/svg?repos=JNHFlow21/trove&type=Date" alt="TROVE star history chart">
+  </a>
+</p>
+
+<sub>Live white-background chart from Star History. It follows public GitHub star data and becomes more informative as the repository grows.</sub>
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)
