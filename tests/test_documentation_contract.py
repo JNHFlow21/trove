@@ -137,6 +137,9 @@ class DocumentationContractTests(unittest.TestCase):
         chinese = self.files['README.zh-CN.md']
         self.assertIn('<strong>简体中文</strong>', chinese)
         self.assertIn('README.zh-CN.md', readme)
+        chart = 'https://api.star-history.com/svg?repos=JNHFlow21/trove&type=Date'
+        self.assertIn(chart, readme)
+        self.assertIn(chart, chinese)
 
     def test_generated_reference_is_byte_identical_to_catalog(self):
         self.assertEqual(
