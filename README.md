@@ -189,7 +189,7 @@ The scanners are guardrails, not a substitute for human review. See
   </a>
 </p>
 
-<sub>Auto-refreshed after every new star and once a week. GitHub Traffic uses the rolling 14-day owner view. No long-lived token is embedded in this README.</sub>
+<sub>Stars, forks, and commits refresh after every new star and once a week. Traffic cards use the dated aggregate owner snapshot shown in the chart because GitHub does not grant its Actions token access to repository Traffic. No long-lived token is embedded in this README.</sub>
 
 ## Documentation
 

@@ -25,6 +25,7 @@ jobs:
         run: >-
           python3 scripts/render_repository_metrics.py
           --repository "$GITHUB_REPOSITORY"
+          --traffic-snapshot .github/repository-metrics-traffic.json
           --output "$RUNNER_TEMP/repository-metrics.svg"
       - name: Publish generated image to the metrics branch
         run: |
