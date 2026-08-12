@@ -501,7 +501,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--warmups', type=int, default=2)
     parser.add_argument('--seed', type=int, default=20260621)
     parser.add_argument('--out', default='docs/perf/agent-runtime-budgets.json')
-    parser.add_argument('--baseline', help='Optional same-host baseline artifact for the 10% p95 regression gate.')
+    parser.add_argument('--baseline', help='Optional same-host baseline artifact for the 10%% p95 regression gate.')
     args = parser.parse_args(argv)
     artifact = run_fixture_baseline(rounds=args.rounds, warmups=args.warmups, seed=args.seed)
     output = {

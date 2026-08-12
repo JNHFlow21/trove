@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import unittest
+import contextlib
+import io
 import json
 from pathlib import Path
 
@@ -8,6 +10,7 @@ from scripts.benchmark_agent_runtime import (
     REQUIRED_MEASUREMENTS,
     evaluate_absolute_budgets,
     evaluate_relative_regressions,
+    main,
     validate_benchmark_artifact,
 )
 from scripts.measure_agent_surface import estimate_json_tokens
@@ -16,6 +19,14 @@ from scripts.release_gate_contracts import agent_runtime_budget_contract_valid
 
 
 class AgentRuntimeBenchmarkContractTests(unittest.TestCase):
+    def test_cli_help_renders_on_supported_python_versions(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), self.assertRaises(SystemExit) as raised:
+            main(['--help'])
+        self.assertEqual(raised.exception.code, 0)
+        self.assertIn('10% p95', output.getvalue())
+        self.assertIn('regression gate', output.getvalue())
+
     def _artifact(self) -> dict:
         measurements = {
             name: {

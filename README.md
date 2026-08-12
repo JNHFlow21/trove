@@ -15,6 +15,7 @@
 <p align="center">
   <a href="https://github.com/JNHFlow21/trove/actions/workflows/ci.yml"><img src="https://github.com/JNHFlow21/trove/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="https://github.com/JNHFlow21/trove/actions/workflows/privacy-scan.yml"><img src="https://github.com/JNHFlow21/trove/actions/workflows/privacy-scan.yml/badge.svg" alt="Privacy scan status"></a>
+  <a href="https://github.com/JNHFlow21/trove/releases/latest"><img src="https://img.shields.io/github/v/release/JNHFlow21/trove?label=release" alt="Latest GitHub release"></a>
   <a href="https://www.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-only-111111?logo=apple" alt="macOS only"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-111111.svg" alt="Apache License 2.0"></a>
@@ -181,6 +182,7 @@ The scanners are guardrails, not a substitute for human review. See
 - [Operations and recovery](docs/operations.md)
 - [Testing](docs/testing.md)
 - [Release model](docs/release.md)
+- [Changelog](CHANGELOG.md)
 - [Roadmap](docs/roadmap.md)
 
 ## Project activity
