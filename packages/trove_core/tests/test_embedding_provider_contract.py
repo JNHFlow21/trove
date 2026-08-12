@@ -63,12 +63,13 @@ class EmbeddingProviderContractTests(unittest.TestCase):
                     configured_embedding_provider(vault_root=vault)
 
     def test_agent_switch_environment_adds_user_local_bin_for_launch_agents(self):
+        fixture_home = '/tmp/trove-fixture-home'
         env = agent_switch_subprocess_environment({
-            'HOME': '/home/example',
+            'HOME': fixture_home,
             'PATH': '/usr/bin:/bin',
             'DASHSCOPE_API_KEY': 'must-not-propagate',
         })
-        self.assertEqual(env['PATH'].split(os.pathsep)[0], '/home/example/.local/bin')
+        self.assertEqual(env['PATH'].split(os.pathsep)[0], f'{fixture_home}/.local/bin')
         self.assertEqual(env['PATH'].split(os.pathsep)[1], '/opt/homebrew/bin')
         self.assertNotIn('DASHSCOPE_API_KEY', env)
 

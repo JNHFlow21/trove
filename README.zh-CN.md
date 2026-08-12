@@ -15,6 +15,7 @@
 <p align="center">
   <a href="https://github.com/JNHFlow21/trove/actions/workflows/ci.yml"><img src="https://github.com/JNHFlow21/trove/actions/workflows/ci.yml/badge.svg" alt="CI 状态"></a>
   <a href="https://github.com/JNHFlow21/trove/actions/workflows/privacy-scan.yml"><img src="https://github.com/JNHFlow21/trove/actions/workflows/privacy-scan.yml/badge.svg" alt="隐私扫描状态"></a>
+  <a href="https://github.com/JNHFlow21/trove/releases/latest"><img src="https://img.shields.io/github/v/release/JNHFlow21/trove?label=release" alt="最新 GitHub Release"></a>
   <a href="https://www.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-only-111111?logo=apple" alt="仅支持 macOS"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11 或更高版本"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-111111.svg" alt="Apache License 2.0"></a>
@@ -145,6 +146,7 @@ gitleaks git --redact
 - [运维与恢复](docs/operations.md)
 - [测试](docs/testing.md)
 - [发行模型](docs/release.md)
+- [更新记录](CHANGELOG.md)
 - [路线图](docs/roadmap.md)
 
 ## 项目数据
