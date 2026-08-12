@@ -136,6 +136,8 @@ def verify_distribution(manifest_path: Path) -> dict[str, Any]:
         or type(manifest.get('source_dirty')) is not bool
     ):
         raise DistributionVerificationError('distribution manifest identity is invalid')
+    if manifest.get('source_dirty') is not False:
+        raise DistributionVerificationError('distribution source checkout is dirty')
     for field in ('runtime_build_hash', 'catalog_hash', 'provider_package_hash', 'distribution_set_sha256'):
         if not re.fullmatch(r'[0-9a-f]{64}', str(manifest.get(field) or '')):
             raise DistributionVerificationError('distribution hash is invalid')

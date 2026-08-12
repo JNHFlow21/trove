@@ -15,6 +15,7 @@ from scripts.benchmark_agent_runtime import (
 )
 from scripts.measure_agent_surface import estimate_json_tokens
 from scripts.generate_fixture_vault import redacted_fixture_metadata
+from scripts.check import ROOT as CHECK_ROOT, selected_checks
 from scripts.release_gate_contracts import agent_runtime_budget_contract_valid
 
 
@@ -26,6 +27,11 @@ class AgentRuntimeBenchmarkContractTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 0)
         self.assertIn('10% p95', output.getvalue())
         self.assertIn('regression gate', output.getvalue())
+
+    def test_perf_gate_writes_its_receipt_outside_the_source_checkout(self):
+        command = selected_checks('perf')[0].command
+        output = Path(command[command.index('--out') + 1]).resolve()
+        self.assertFalse(output.is_relative_to(CHECK_ROOT.resolve()))
 
     def _artifact(self) -> dict:
         measurements = {

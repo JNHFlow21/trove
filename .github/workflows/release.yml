@@ -20,6 +20,8 @@ jobs:
           python-version: '3.11'
       - run: bash scripts/bootstrap_runtime.sh
       - run: ./scripts/trove-python scripts/check.py release
+      - name: Require a clean source checkout after release gates
+        run: git diff --exit-code
       - name: Build and verify distribution
         shell: bash
         run: |
