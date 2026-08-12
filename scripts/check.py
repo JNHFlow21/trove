@@ -3,14 +3,17 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 from typing import Sequence
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON = ROOT / 'scripts' / 'trove-python'
+AGENT_RUNTIME_OUTPUT = Path(tempfile.gettempdir()) / f'trove-agent-runtime-budgets-{os.getpid()}.json'
 
 
 @dataclass(frozen=True)
@@ -56,7 +59,10 @@ CHECKS = {
         Check('agent-product-acceptance', (str(PYTHON), 'scripts/run_agent_product_acceptance.py')),
     ),
     'perf': (
-        Check('agent-runtime', (str(PYTHON), 'scripts/benchmark_agent_runtime.py', '--rounds', '3', '--warmups', '1')),
+        Check('agent-runtime', (
+            str(PYTHON), 'scripts/benchmark_agent_runtime.py',
+            '--rounds', '3', '--warmups', '1', '--out', str(AGENT_RUNTIME_OUTPUT),
+        )),
     ),
 }
 RELEASE_ORDER = ('unit', 'contract', 'package', 'e2e', 'perf')

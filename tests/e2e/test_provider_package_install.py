@@ -73,6 +73,17 @@ class ProviderPackageInstallTests(unittest.TestCase):
             with self.assertRaisesRegex(DistributionVerificationError, 'artifact hash mismatch'):
                 verify_distribution(copied / 'distribution-manifest.json')
 
+    def test_dirty_source_manifest_is_rejected_before_install(self):
+        with tempfile.TemporaryDirectory() as directory:
+            copied = Path(directory) / 'distribution'
+            shutil.copytree(distribution_dir(), copied)
+            manifest_path = copied / 'distribution-manifest.json'
+            manifest = json.loads(manifest_path.read_text())
+            manifest['source_dirty'] = True
+            manifest_path.write_text(json.dumps(manifest, sort_keys=True, separators=(',', ':')) + '\n')
+            with self.assertRaisesRegex(DistributionVerificationError, 'source checkout is dirty'):
+                verify_distribution(manifest_path)
+
 
 if __name__ == '__main__':
     unittest.main()
