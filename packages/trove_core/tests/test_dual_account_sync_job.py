@@ -9,7 +9,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from trove_core.jobs.dual_account_sync import _prune_runs, run_once
+from trove_core.jobs.dual_account_sync import (
+    SYNC_CLIENT_TIMEOUT_SECONDS,
+    SYNC_PROCESS_TIMEOUT_SECONDS,
+    SYNC_STATUS_CLIENT_TIMEOUT_SECONDS,
+    SYNC_STATUS_PROCESS_TIMEOUT_SECONDS,
+    _prune_runs,
+    run_once,
+)
 from trove_core.store.sqlite_store import SQLiteStore
 from trove_core.vault.config import VaultConfig
 from trove_core.wechat.decrypt.runner import CopyPlaintextEngine
@@ -463,7 +470,7 @@ class DualAccountSyncJobTests(unittest.TestCase):
             self.assertTrue(third['ok'])
             self.assertFalse(previous.exists())
 
-    def test_terminal_failure_advances_attempt_but_timeout_reuses_pending_snapshot(self):
+    def test_terminal_failure_advances_attempt_and_reuses_pending_snapshot(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             live = root / 'Containers'
@@ -490,12 +497,15 @@ class DualAccountSyncJobTests(unittest.TestCase):
 
             def sync_runner(arguments, **_kwargs):
                 calls.append(list(arguments))
-                if len(calls) == 1:
-                    state = 'failed'
-                elif len(calls) == 2:
-                    raise subprocess.TimeoutExpired(arguments, 330)
-                else:
-                    state = 'completed'
+                self.assertEqual(
+                    arguments[arguments.index('--timeout') + 1],
+                    str(SYNC_CLIENT_TIMEOUT_SECONDS),
+                )
+                self.assertEqual(
+                    _kwargs['timeout'],
+                    SYNC_PROCESS_TIMEOUT_SECONDS,
+                )
+                state = 'failed' if len(calls) == 1 else 'completed'
                 return subprocess.CompletedProcess(
                     arguments,
                     0,
@@ -514,19 +524,109 @@ class DualAccountSyncJobTests(unittest.TestCase):
                     secret_resolver=_SecretResolver(),
                     sync_runner=sync_runner,
                 )
-                for _ in range(3)
+                for _ in range(2)
             ]
 
             keys = [call[call.index('--idempotency-key') + 1] for call in calls]
             self.assertFalse(reports[0]['ok'])
-            self.assertEqual(reports[1]['sync']['status'], 'transport_unknown')
             self.assertEqual(reports[1]['decrypt']['status'], 'reused_pending_snapshot')
-            self.assertTrue(reports[2]['ok'])
+            self.assertTrue(reports[1]['ok'])
             self.assertNotEqual(keys[0], keys[1])
-            self.assertEqual(keys[1], keys[2])
+
+    def test_timeout_replays_same_operation_then_polls_to_completion(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            live = root / 'Containers'
+            vault = root / 'vault'
+            jobs = vault / 'jobs'
+            source = live / 'com.tencent.xinWeChat' / 'Data/Documents/xwechat_files'
+            _account(source, 'wxid_first1_suffix', 'first account message')
+            jobs.mkdir(parents=True)
+            config = jobs / 'dual_account_sync.private.json'
+            config.write_text(json.dumps({
+                'version': 1,
+                'live_root': str(live),
+                'secret_name': 'TROVE_WECHAT_KEY_STORE',
+                'retained_runs': 1,
+                'selected_accounts': [{
+                    'account_id': 'wxid_first1_suffix',
+                    'container_id': 'com.tencent.xinWeChat',
+                    'root_name': 'wxid_first1_suffix',
+                    'output_name': 'account-first',
+                }],
+            }), encoding='utf-8')
+            config.chmod(0o600)
+            calls: list[list[str]] = []
+            sync_calls = 0
+            status_calls = 0
+
+            def sync_runner(arguments, **kwargs):
+                nonlocal sync_calls, status_calls
+                calls.append(list(arguments))
+                if 'sync' in arguments:
+                    sync_calls += 1
+                    self.assertEqual(
+                        arguments[arguments.index('--timeout') + 1],
+                        str(SYNC_CLIENT_TIMEOUT_SECONDS),
+                    )
+                    self.assertEqual(kwargs['timeout'], SYNC_PROCESS_TIMEOUT_SECONDS)
+                    if sync_calls == 1:
+                        raise subprocess.TimeoutExpired(
+                            arguments,
+                            SYNC_PROCESS_TIMEOUT_SECONDS,
+                        )
+                    state = 'running'
+                else:
+                    status_calls += 1
+                    self.assertEqual(
+                        arguments[arguments.index('--timeout') + 1],
+                        str(SYNC_STATUS_CLIENT_TIMEOUT_SECONDS),
+                    )
+                    self.assertEqual(
+                        kwargs['timeout'],
+                        SYNC_STATUS_PROCESS_TIMEOUT_SECONDS,
+                    )
+                    state = 'running' if status_calls == 1 else 'completed'
+                return subprocess.CompletedProcess(
+                    arguments,
+                    0,
+                    stdout=json.dumps({
+                        'ok': True,
+                        'data': {
+                            'operation': {
+                                'operation_id': 'op_test_replay',
+                                'state': state,
+                                'result': {},
+                            },
+                        },
+                    }),
+                    stderr='',
+                )
+
+            with patch(
+                'trove_core.jobs.dual_account_sync.time.sleep',
+                return_value=None,
+            ):
+                report = run_once(
+                    vault,
+                    config_path=config,
+                    engine=CopyPlaintextEngine(),
+                    secret_resolver=_SecretResolver(),
+                    sync_runner=sync_runner,
+                )
+
+            keys = [
+                call[call.index('--idempotency-key') + 1]
+                for call in calls
+                if 'sync' in call
+            ]
+            self.assertTrue(report['ok'])
+            self.assertEqual(sync_calls, 2)
+            self.assertEqual(status_calls, 2)
+            self.assertEqual(len(set(keys)), 1)
             state = json.loads((jobs / 'dual_account_sync_state.redacted.json').read_text())
             self.assertEqual(state['last_status'], 'completed')
-            self.assertEqual(state['sync_attempt'], 1)
+            self.assertEqual(state['sync_attempt'], 0)
 
 
 if __name__ == '__main__':

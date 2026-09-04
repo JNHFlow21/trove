@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 from dataclasses import asdict, dataclass
 from pathlib import Path
 import hashlib
@@ -48,7 +50,7 @@ class FavoritesImporter:
             return []
         out: list[FavoriteRecord] = []
         try:
-            with sqlite3.connect(f'file:{self.favorite_db}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{self.favorite_db}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
                 candidates = [t for t in tables if any(token in t.lower() for token in ('fav', 'favorite'))]

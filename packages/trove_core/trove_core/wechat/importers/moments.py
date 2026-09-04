@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from datetime import datetime, timezone
@@ -467,7 +469,7 @@ class MomentsImporter:
             self.last_interactions = []
             return [], []
         try:
-            with sqlite3.connect(f'file:{self.sns_db}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{self.sns_db}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 tables = self._table_names(conn)
                 interaction_tables: list[str] = []
@@ -624,7 +626,7 @@ class MomentsImporter:
         raw_records: list[dict[str, Any]] = []
         remaining_budget = SNS_CACHE_MAPPING_SCAN_LIMIT if scan_limit is None else max(0, min(int(scan_limit), SNS_CACHE_MAPPING_SCAN_LIMIT))
         try:
-            with sqlite3.connect(f'file:{self.sns_db}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{self.sns_db}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
                 for table in tables:

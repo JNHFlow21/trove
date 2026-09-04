@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from contextlib import closing
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 import hashlib
@@ -78,7 +80,7 @@ def classify_path(path: Path) -> tuple[str, bool, bool, str]:
 
 def _count_table_rows(db_path: Path, table_names: set[str] | None = None) -> int:
     try:
-        with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as conn:
+        with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as conn:
             tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
             total = 0
             for table in tables:
@@ -210,7 +212,7 @@ def summarize_scope(path: Path, *, limit_per_table: int = 5000) -> tuple[dict[st
     contact_db = path / 'contact.db'
     if contact_db.exists():
         try:
-            with sqlite3.connect(f'file:{contact_db}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{contact_db}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 if 'contact' in tables:
@@ -224,7 +226,7 @@ def summarize_scope(path: Path, *, limit_per_table: int = 5000) -> tuple[dict[st
     # Message conversations via Name2Id rows.
     for db_path in sorted(path.glob('message_*.db')):
         try:
-            with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 if 'Name2Id' not in tables:
@@ -264,7 +266,7 @@ def inventory(paths: Iterable[str | Path]) -> list[SourceCandidate]:
 
 def sqlite_row_count(path: Path) -> int | None:
     try:
-        with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as conn:
+        with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as conn:
             tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
             total = 0
             for table in tables:

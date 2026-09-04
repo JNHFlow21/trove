@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 import hashlib
 import json
 import os
@@ -105,7 +107,7 @@ class WeChatProvider:
             return []
         uri = database.resolve().as_uri() + '?mode=ro'
         try:
-            with sqlite3.connect(uri, uri=True) as connection:
+            with closing(sqlite3.connect(uri, uri=True)) as connection:
                 rows = connection.execute(
                     """SELECT a.account_id,a.label,COUNT(m.id),MAX(m.timestamp)
                          FROM accounts a LEFT JOIN messages m ON m.account_id=a.account_id

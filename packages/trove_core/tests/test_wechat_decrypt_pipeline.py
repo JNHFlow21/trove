@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import json
 import sqlite3
 import tempfile
@@ -18,7 +18,7 @@ from trove_core.wechat.decrypt.manifest import (
     load_account_identity,
     load_snapshot_guard,
 )
-from trove_core.wechat.decrypt.runner import CopyPlaintextEngine, DecryptFileResult
+from trove_core.wechat.decrypt.runner import CopyPlaintextEngine, DecryptFileResult, MESSAGE_CREATE_TIME_INDEX_PREFIX
 from trove_core.wechat.decrypt.status import known_keyed_account_refs
 from trove_core.wechat.importers.wechat_decrypted import WeChatDecryptedAccountImporter, msg_table_for
 
@@ -349,6 +349,78 @@ class WeChatDecryptPipelineTests(unittest.TestCase):
             self.assertEqual(previous_contact.stat().st_ino, current_contact.stat().st_ino)
             self.assertEqual(len(known_keyed_account_refs(vault)), 1)
             self.assertNotIn(str(live), json.dumps(second))
+
+    def test_message_outputs_gain_create_time_delta_indexes(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            live = root / 'live'
+            vault = root / 'vault'
+            make_account(live, 'com.tencent.xinWeChat__wxid_keep')
+            cfg = DecryptConfig(
+                live_root=live,
+                vault_root=vault,
+                selected_accounts=selected_accounts_from_strings(['wxid_keep:com.tencent.xinWeChat__wxid_keep']),
+            )
+            report = run_decrypt_plan(build_decrypt_plan(cfg), engine=CopyPlaintextEngine())
+
+            self.assertTrue(report['ok'])
+            snapshot_db = (
+                vault / 'sources' / 'wechat-integrated-decrypted' / 'current' /
+                'com.tencent.xinWeChat__wxid_keep' / 'message_0.db'
+            )
+            table = msg_table_for('wxid_friend')
+            with closing(sqlite3.connect(f'file:{snapshot_db}?mode=ro', uri=True)) as conn:
+                index_names = {
+                    str(row[0])
+                    for row in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")
+                }
+                rows = conn.execute(f'SELECT create_time FROM {table}').fetchall()
+            self.assertIn(f'{MESSAGE_CREATE_TIME_INDEX_PREFIX}{table}', index_names)
+            self.assertEqual([row[0] for row in rows], [1710000000])
+
+    def test_reused_message_output_is_indexed_without_touching_the_published_run(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            live = root / 'live'
+            vault = root / 'vault'
+            make_account(live, 'com.tencent.xinWeChat__wxid_keep')
+            cfg = DecryptConfig(
+                live_root=live,
+                vault_root=vault,
+                selected_accounts=selected_accounts_from_strings(['wxid_keep:com.tencent.xinWeChat__wxid_keep']),
+            )
+            first = run_decrypt_plan(build_decrypt_plan(cfg), engine=CopyPlaintextEngine())
+            self.assertTrue(first['ok'])
+            runs = vault / 'sources' / 'wechat-integrated-decrypted' / 'runs'
+            table = msg_table_for('wxid_friend')
+            index_name = f'{MESSAGE_CREATE_TIME_INDEX_PREFIX}{table}'
+            first_db = runs / first['run_ref'] / 'com.tencent.xinWeChat__wxid_keep' / 'message_0.db'
+
+            def has_index(path: Path) -> bool:
+                with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as conn:
+                    return bool(conn.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='index' AND name=?",
+                        (index_name,),
+                    ).fetchone())
+
+            self.assertTrue(has_index(first_db))
+            # Simulate a published run from before delta indexes existed.
+            with sqlite3.connect(first_db) as conn:
+                conn.execute(f'DROP INDEX {index_name}')
+
+            second = run_decrypt_plan(build_decrypt_plan(cfg), engine=CopyPlaintextEngine())
+            self.assertTrue(second['ok'])
+            self.assertEqual(second['summary']['reused'], 2)
+            second_db = runs / second['run_ref'] / 'com.tencent.xinWeChat__wxid_keep' / 'message_0.db'
+            self.assertFalse(has_index(first_db))
+            self.assertTrue(has_index(second_db))
+            self.assertNotEqual(first_db.stat().st_ino, second_db.stat().st_ino)
+
+            third = run_decrypt_plan(build_decrypt_plan(cfg), engine=CopyPlaintextEngine())
+            self.assertTrue(third['ok'])
+            third_db = runs / third['run_ref'] / 'com.tencent.xinWeChat__wxid_keep' / 'message_0.db'
+            self.assertTrue(has_index(third_db))
+            self.assertEqual(second_db.stat().st_ino, third_db.stat().st_ino)
 
     def test_explicit_container_and_root_use_direct_layout_without_global_discovery(self):
         with tempfile.TemporaryDirectory() as d:

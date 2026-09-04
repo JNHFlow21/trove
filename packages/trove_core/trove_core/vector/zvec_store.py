@@ -30,6 +30,13 @@ VECTOR_TEXT_VERSION = 3
 ZVEC_COLLECTION_CONTRACT_VERSION = 1
 ZVEC_ADAPTIVE_OVERFETCH_MAX = 1600
 _ZVEC_MAX_WRITE_BATCH = 1024
+# ZVEC builds the dense HNSW graph only during segment optimization, never on
+# upsert/flush: a collection written without it reports index_completeness 0.0
+# and every query brute-force scans the raw vectors (measured on the real
+# 1.2M x 1024 collection: ~17s/query on internal SSD, 39-41s on USB).  Merge
+# segments after a run that wrote at least this many documents; smaller dirty
+# batches stay on the cheap write path and ride the next bulk run.
+_ZVEC_OPTIMIZE_MIN_INDEXED = 1024
 
 _ZVEC_PUSHDOWN_FIELDS = {
     'account_id',
@@ -572,12 +579,17 @@ class ZVecStore:
         recovery_reason = self._atomic_recovery_reason()
         metadata = self._read_metadata()
         progress = self._read_progress()
-        # With no collection there is nothing to compare against.  Avoid an
-        # exact evidence/message COUNT over the entire corpus on every routine
-        # maintain just to report ``zvec_collection_missing``.
-        expected_count = self._expected_document_count() if exists else None
         generation_id = str(metadata.get('generation_id') or '')
         generation = self.ledger.generation(generation_id) if self.ledger is not None and generation_id else None
+        # The ledger's expected_count is the authoritative source count:
+        # writers refresh it transactionally from a real source COUNT on every
+        # indexing run (``index_all_messages`` and ``apply_delta``).  A fresh
+        # COUNT(*) over evidence_chunks/messages on this read-only status path
+        # cost more than a minute per call on real Vaults and pushed every
+        # engine build past the search request deadline.  Source growth after
+        # the last writer run is tracked by the dirty-citation journal, which
+        # sync/maintain consume through ``dirty_citation_count``.
+        expected_count = (generation.expected_count if generation is not None else None) if exists else None
         indexed_count = generation.indexed_count if generation is not None else 0
         generation_revision = generation.revision if generation is not None else 0
         mirrored_revision_raw = metadata.get('generation_revision')
@@ -1070,6 +1082,7 @@ class ZVecStore:
                     ledger.apply_delta(generation_id, deletes=stale_batch, expected_count=expected_count)
 
             collection.flush()
+            optimize_report = self._optimize_segments(collection, indexed=indexed)
             if mutating_active_generation:
                 self._write_swap_marker(phase='incremental_ledger_committed', **marker_args)
                 self._atomic_failpoint('after_incremental_ledger')
@@ -1108,6 +1121,7 @@ class ZVecStore:
                 'catchup_pending': bool(mutating_active_generation and not complete),
                 'max_messages_limited': max_messages_limited,
                 'last_dirty_count': len(citation_filter) if citation_filter is not None else None,
+                'segment_optimize': optimize_report,
                 'backend': 'zvec',
             }
             prior_calibration = metadata.get('score_calibration')
@@ -1204,6 +1218,7 @@ class ZVecStore:
             deleted = self._delete_documents(collection, list(dict.fromkeys(deletes)))
             indexed = self._upsert_precomputed_batch(collection, rows)
             collection.flush()
+            optimize_report = self._optimize_segments(collection, indexed=indexed)
             self._write_swap_marker(phase='incremental_collection_flushed', **marker_args)
             self.ledger.apply_delta(
                 generation_id,
@@ -1232,6 +1247,7 @@ class ZVecStore:
                 'catchup_pending': not complete,
                 'max_messages_limited': False,
                 'last_dirty_count': len(rows) + len(deletes),
+                'segment_optimize': optimize_report,
                 'backend': 'zvec',
             }
             # Incremental changes keep the same model, metric, dimensions, and
@@ -1270,6 +1286,34 @@ class ZVecStore:
                     collection.delete(doc_id)
             deleted += len(batch)
         return deleted
+
+    def _optimize_segments(self, collection, *, indexed: int) -> dict[str, Any]:
+        """Merge newly written segments so the dense HNSW index covers them.
+
+        ZVEC materializes the dense graph only here, never on upsert/flush; a
+        store that skips this step publishes generations whose queries
+        brute-force scan raw vectors.  A failed or unsupported merge never
+        fails the indexing run: the written generation stays correct, just
+        slower to query, and the report is recorded in the metadata sidecar.
+        """
+
+        optimize = getattr(collection, 'optimize', None)
+        if not callable(optimize):
+            return {'attempted': False, 'ok': False, 'reason_code': 'optimize_unsupported'}
+        if indexed < _ZVEC_OPTIMIZE_MIN_INDEXED:
+            return {'attempted': False, 'ok': False, 'reason_code': 'below_min_indexed', 'indexed': indexed}
+        started = time.perf_counter()
+        try:
+            optimize()
+        except Exception as exc:
+            return {
+                'attempted': True,
+                'ok': False,
+                'reason_code': exc.__class__.__name__,
+                'indexed': indexed,
+                'elapsed_s': round(time.perf_counter() - started, 3),
+            }
+        return {'attempted': True, 'ok': True, 'reason_code': None, 'indexed': indexed, 'elapsed_s': round(time.perf_counter() - started, 3)}
 
     def _invalidate_collection_cache(self) -> None:
         self._collection = None

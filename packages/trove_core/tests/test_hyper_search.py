@@ -1,6 +1,7 @@
 from __future__ import annotations
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -462,6 +463,106 @@ class HyperSearchTests(unittest.TestCase):
             self.assertFalse(plan['semantic_first'])
             self.assertTrue(plan['vector_fallback_to_lexical'])
             self.assertTrue(plan['exact_route_executed'])
+
+    def test_vector_route_timeout_falls_back_to_lexical_routes(self):
+        class LexicalFallbackStore(SQLiteStore):
+            def __init__(self, path):
+                super().__init__(path)
+                self.exact_calls = 0
+
+            def exact_search(self, *_args, **_kwargs):
+                self.exact_calls += 1
+                return self.all_messages()[:1]
+
+            def chunk_search(self, *_args, **_kwargs):
+                return []
+
+            def fts_search_filtered(self, *_args, **_kwargs):
+                return []
+
+        class SlowVector:
+            def search(self, *_args, **_kwargs):
+                time.sleep(2.0)
+                return []
+
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            store = LexicalFallbackStore(Path(d) / 'index' / 'trove.sqlite')
+            response = HyperSearch(
+                store,
+                vector_store=SlowVector(),
+                embedding_provider=object(),
+                vector_status={'state': 'available', 'selected_backend': 'zvec'},
+                route_timeout_seconds=0.2,
+            ).search(SearchRequest('最近需要跟进哪些事情', limit=3, semantic='auto'))
+
+            self.assertTrue(response.results)
+            self.assertEqual(store.exact_calls, 1)
+            vector = response.retrieval_status['vector']
+            self.assertTrue(vector['attempted'])
+            self.assertEqual(vector['state'], 'degraded')
+            self.assertEqual(vector['reason_code'], 'vector_route_timeout')
+            self.assertEqual(vector['candidate_count'], 0)
+            self.assertLess(response.elapsed_ms, 1500)
+            plan = response.retrieval_status['retrieval_plan']
+            self.assertFalse(plan['semantic_first'])
+            self.assertTrue(plan['vector_fallback_to_lexical'])
+            self.assertTrue(plan['exact_route_executed'])
+
+    def test_semantic_on_vector_route_timeout_returns_lexical_results(self):
+        class SlowVector:
+            def search(self, *_args, **_kwargs):
+                time.sleep(2.0)
+                return []
+
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            response = HyperSearch(
+                SQLiteStore(Path(d) / 'index' / 'trove.sqlite'),
+                vector_store=SlowVector(),
+                embedding_provider=object(),
+                vector_status={'state': 'available', 'selected_backend': 'zvec'},
+                route_timeout_seconds=0.2,
+            ).search(SearchRequest('价格太高', limit=3, semantic='on'))
+
+            self.assertTrue(response.results)
+            vector = response.retrieval_status['vector']
+            self.assertTrue(vector['attempted'])
+            self.assertEqual(vector['state'], 'degraded')
+            self.assertEqual(vector['reason_code'], 'vector_route_timeout')
+            self.assertLess(response.elapsed_ms, 1500)
+
+    def test_episode_route_timeout_degrades_to_conversation_context(self):
+        class FixedVector:
+            def __init__(self, rows):
+                self.rows = rows
+
+            def search(self, _query, filters=None, limit=10, provider=None):
+                return self.rows[:limit]
+
+        class SlowEpisodeStore:
+            def search(self, _query, *, provider, filters=None, limit=3):
+                time.sleep(2.0)
+                return []
+
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            store = SQLiteStore(Path(d) / 'index' / 'trove.sqlite')
+            response = HyperSearch(
+                store,
+                vector_store=FixedVector(store.all_messages()),
+                embedding_provider=object(),
+                vector_status={'state': 'available', 'selected_backend': 'zvec'},
+                episode_store=SlowEpisodeStore(),
+                route_timeout_seconds=0.5,
+            ).search(SearchRequest('价格变化的前因后果', limit=3, semantic='on'))
+
+            self.assertTrue(response.results)
+            episode_status = response.retrieval_status['retrieval_plan']['multi_hop_episode']
+            self.assertEqual(episode_status['state'], 'degraded')
+            self.assertEqual(episode_status['reason_code'], 'episode_route_timeout')
+            self.assertEqual(episode_status['fallback_mode'], 'conversation_context')
+            self.assertLess(response.elapsed_ms, 1500)
 
     def test_rewrite_depth_and_stage_budgets_are_independent(self):
         class RecordingVector:

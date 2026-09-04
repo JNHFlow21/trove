@@ -9,11 +9,12 @@ from pathlib import Path
 import sqlite3
 from unittest.mock import patch
 
-from trove_core.runtime import SearchRuntimeCache
+from trove_core.runtime import RuntimeTimedOut, SearchRuntimeCache
 from trove_core.search.query import SearchRequest
 from trove_core.store.migrations import SchemaMigrationRequired
 from trove_core.vault.config import VaultConfig
 from trove_core.vault.generation import vault_generation_publish
+from trove_core.vector.registry import VectorBackendRegistry, VectorBackendStatus
 from trove_core.wechat.fixture_factory import FixtureData, generate_fixture
 from trove_core.wechat.fixture_guard import FixtureVaultGuardError
 from trove_core.wechat.indexer import index_fixture_data, index_fixture_vault
@@ -48,6 +49,20 @@ class SearchRuntimeCacheTests(unittest.TestCase):
             third = cache.get()
             self.assertIsNot(first, third)
             self.assertTrue(third.search(SearchRequest('价格太高', limit=2)).results)
+
+    def test_engine_store_uses_the_bounded_page_cache_budget_by_default(self):
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            cache = SearchRuntimeCache(VaultConfig.resolve(d, env={}), provider_factory=lambda: None)
+            try:
+                engine = cache.get()
+                self.assertEqual(engine.store.page_cache_kib, 8 * 1024)
+                with engine.store.connect() as connection:
+                    self.assertEqual(
+                        connection.execute('PRAGMA cache_size').fetchone()[0], -8 * 1024,
+                    )
+            finally:
+                cache.close()
 
     def test_result_correctness_does_not_depend_on_cache_retention(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -116,6 +131,139 @@ class SearchRuntimeCacheTests(unittest.TestCase):
             with sqlite3.connect(db) as conn:
                 row = conn.execute("SELECT value FROM schema_meta WHERE key='fts_tokenizer'").fetchone()
             self.assertIsNone(row)
+
+    def test_cold_engine_build_gets_one_bounded_grace_window(self):
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            cfg = VaultConfig.resolve(d, env={})
+            cache = SearchRuntimeCache(
+                cfg,
+                provider_factory=lambda: None,
+                timeout_seconds=0.2,
+                engine_build_timeout_seconds=5.0,
+            )
+            try:
+                original = VectorBackendRegistry.select
+                delayed = threading.Event()
+
+                def slow_select(self_registry, preferred_backend='zvec'):
+                    if not delayed.is_set():
+                        delayed.set()
+                        time.sleep(1.0)
+                    return original(self_registry, preferred_backend)
+
+                with patch.object(VectorBackendRegistry, 'select', slow_select):
+                    response = cache.search(SearchRequest('价格太高', limit=2, semantic='off'))
+                self.assertTrue(response.results)
+                self.assertGreaterEqual(cache.status()['engine_builds'], 1)
+            finally:
+                cache.close()
+
+    def test_cold_engine_build_beyond_grace_still_times_out(self):
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            cfg = VaultConfig.resolve(d, env={})
+            cache = SearchRuntimeCache(
+                cfg,
+                provider_factory=lambda: None,
+                timeout_seconds=0.2,
+                engine_build_timeout_seconds=0.6,
+            )
+            try:
+                original = VectorBackendRegistry.select
+                delayed = threading.Event()
+
+                def slow_select(self_registry, preferred_backend='zvec'):
+                    if not delayed.is_set():
+                        delayed.set()
+                        time.sleep(2.0)
+                    return original(self_registry, preferred_backend)
+
+                with patch.object(VectorBackendRegistry, 'select', slow_select):
+                    with self.assertRaises(RuntimeTimedOut) as error:
+                        cache.search(SearchRequest('价格太高', limit=2, semantic='off'))
+                self.assertEqual(error.exception.code, 'runtime_timeout')
+            finally:
+                cache.close()
+
+    def test_engine_build_timeout_validation(self):
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            cfg = VaultConfig.resolve(d, env={})
+            with self.assertRaises(ValueError):
+                SearchRuntimeCache(cfg, provider_factory=lambda: None, timeout_seconds=10, engine_build_timeout_seconds=5)
+            with self.assertRaises(ValueError):
+                SearchRuntimeCache(cfg, provider_factory=lambda: None, engine_build_timeout_seconds=301)
+
+    def test_route_timeout_validation(self):
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            cfg = VaultConfig.resolve(d, env={})
+            with self.assertRaises(ValueError):
+                SearchRuntimeCache(cfg, provider_factory=lambda: None, route_timeout_seconds=0)
+            with self.assertRaises(ValueError):
+                SearchRuntimeCache(cfg, provider_factory=lambda: None, timeout_seconds=10, route_timeout_seconds=10)
+            with self.assertRaises(ValueError):
+                SearchRuntimeCache(cfg, provider_factory=lambda: None, timeout_seconds=10, route_timeout_seconds=11)
+
+    def test_route_timeout_defaults_to_bounded_share_of_request_budget(self):
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            cfg = VaultConfig.resolve(d, env={})
+            cache = SearchRuntimeCache(cfg, provider_factory=lambda: None)
+            try:
+                self.assertEqual(cache.route_timeout_seconds, 10.0)
+                self.assertEqual(cache.get().route_timeout_seconds, 10.0)
+                self.assertEqual(cache.status()['route_timeout_seconds'], 10.0)
+            finally:
+                cache.close()
+            custom = SearchRuntimeCache(cfg, provider_factory=lambda: None, route_timeout_seconds=3.5)
+            try:
+                self.assertEqual(custom.get().route_timeout_seconds, 3.5)
+            finally:
+                custom.close()
+
+    def test_vector_route_timeout_returns_lexical_results_within_request_budget(self):
+        class SlowVector:
+            def search(self, *_args, **_kwargs):
+                time.sleep(2.0)
+                return []
+
+        available = VectorBackendStatus(
+            state='available',
+            selected_backend='zvec',
+            preferred_backend='zvec',
+            reason_code=None,
+            message=None,
+            baseline_search_available=True,
+            zvec={},
+            sqlite={},
+            message_count=0,
+        )
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            cfg = VaultConfig.resolve(d, env={})
+            cache = SearchRuntimeCache(
+                cfg,
+                provider_factory=lambda: object(),
+                timeout_seconds=1.0,
+                engine_build_timeout_seconds=5.0,
+                route_timeout_seconds=0.3,
+            )
+            try:
+                with patch.object(
+                    VectorBackendRegistry,
+                    'select',
+                    lambda self_registry, preferred_backend='zvec': (SlowVector(), available),
+                ):
+                    response = cache.search(SearchRequest('价格太高', limit=2, semantic='on'))
+                self.assertTrue(response.results)
+                vector = response.retrieval_status['vector']
+                self.assertEqual(vector['state'], 'degraded')
+                self.assertEqual(vector['reason_code'], 'vector_route_timeout')
+                self.assertLess(response.elapsed_ms, 900)
+            finally:
+                cache.close()
 
     def test_external_generation_and_explicit_invalidation_each_advance_once(self):
         with tempfile.TemporaryDirectory() as directory:

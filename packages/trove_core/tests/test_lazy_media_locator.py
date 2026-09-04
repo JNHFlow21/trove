@@ -24,6 +24,53 @@ from packages.trove_core.tests.test_message_media_registration import create_mul
 
 
 class LazyMediaLocatorTests(unittest.TestCase):
+    def test_snapshot_database_handles_close_before_retention_can_remove_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            account = Path(directory) / 'com.tencent.xinWeChat__wxid_ownerfixture'
+            account.mkdir()
+            table = msg_table_for('wxid_fixtureb')
+            with sqlite3.connect(account / 'message_0.db') as conn:
+                conn.execute('CREATE TABLE Name2Id (user_name TEXT)')
+                conn.execute('INSERT INTO Name2Id VALUES (?)', ('wxid_fixtureb',))
+                conn.execute(f'CREATE TABLE "{table}" (local_id INTEGER,message_content BLOB)')
+                conn.execute(
+                    f'INSERT INTO "{table}" VALUES (?,?)',
+                    (7, b'<msg><emoji cdnurl="http://vweixinf.tc.qq.com/sticker.gif" /></msg>'),
+                )
+                conn.commit()
+
+            opened: list[sqlite3.Connection] = []
+            real_connect = sqlite3.connect
+
+            class TrackedConnection(sqlite3.Connection):
+                closed = False
+
+                def close(self) -> None:
+                    self.closed = True
+                    super().close()
+
+            def tracked_connect(*args, **kwargs):
+                kwargs['factory'] = TrackedConnection
+                connection = real_connect(*args, **kwargs)
+                opened.append(connection)
+                return connection
+
+            with mock.patch(
+                'trove_core.wechat.media.locator.sqlite3.connect',
+                side_effect=tracked_connect,
+            ):
+                recovered = _remote_message_sticker_url(account, {
+                    'message_shard_id': 'message_0',
+                    'conversation_id': 'conv-' + hashlib.sha256(
+                        f'{account.name}:wxid_fixtureb'.encode(),
+                    ).hexdigest()[:12],
+                    'message_local_id': 7,
+                })
+
+            self.assertEqual(recovered, 'https://vweixinf.tc.qq.com/sticker.gif')
+            self.assertEqual(len(opened), 2)
+            self.assertTrue(all(connection.closed for connection in opened))
+
     def test_sticker_cdn_url_is_recovered_from_exact_message_without_persisting_it(self):
         with tempfile.TemporaryDirectory() as directory:
             account = Path(directory) / 'com.tencent.xinWeChat__wxid_ownerfixture'

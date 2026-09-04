@@ -7,9 +7,9 @@ Packs are cumulative.
 
 | Pack | Capability count |
 | --- | ---: |
-| `standard` | 12 |
-| `operations` | 19 |
-| `admin` | 27 |
+| `standard` | 19 |
+| `operations` | 26 |
+| `admin` | 34 |
 
 ## standard
 
@@ -23,8 +23,15 @@ Packs are cumulative.
 | `trove.context` | `trove_context` | `trove context` | `read` / `read` | — | account-scoped, 64 KiB |
 | `trove.profile` | `trove_profile` | `trove profile show` | `read` / `read` | — | account-scoped, 64 KiB |
 | `trove.files_list` | `trove_files_list` | `trove files list` | `read` / `read` | — | account-scoped, paginated, 64 KiB |
+| `trove.favorites_list` | `trove_favorites_list` | `trove favorites list` | `read` / `read` | — | account-scoped, paginated, 128 KiB |
+| `trove.moment_timeline` | `trove_moment_timeline` | `trove moments timeline` | `read` / `read` | — | account-scoped, paginated, 128 KiB |
+| `trove.moment_interactions` | `trove_moment_interactions` | `trove moments interactions` | `read` / `read` | — | account-scoped, paginated, 128 KiB |
+| `trove.message_stats` | `trove_message_stats` | `trove messages stats` | `read` / `read` | — | account-scoped, 64 KiB |
+| `trove.pending_replies` | `trove_pending_replies` | `trove messages pending` | `read` / `read` | — | account-scoped, 64 KiB |
+| `trove.messages_by_kind` | `trove_messages_by_kind` | `trove messages by-kind` | `read` / `read` | — | account-scoped, paginated, 128 KiB |
 | `trove.media_fetch` | `trove_media_fetch` | `trove files fetch` | `read` / `read` | `media_provider` | account-scoped, 64 KiB |
 | `trove.media_enrich` | `trove_media_enrich` | `trove media transcribe` | `read` / `journaled` | `media_provider` | account-scoped, 64 KiB |
+| `trove.media_enrich_plan` | `trove_media_enrich_plan` | `trove media plan` | `read` / `read` | — | account-scoped, 64 KiB |
 | `trove.operation_status` | `trove_operation_status` | `trove operation status` | `read` / `read` | — | 64 KiB |
 | `trove.operation_continue` | `trove_operation_continue` | `trove operation continue` | `controlled_write` / `journaled` | — | 64 KiB |
 
@@ -37,8 +44,15 @@ Descriptions:
 - `trove.context` — Read a bounded context window around one citation.
 - `trove.profile` — Read a bounded cited person or relationship profile.
 - `trove.files_list` — List bounded file evidence without materializing content.
+- `trove.favorites_list` — Read one bounded cited favorites list with keyword, derived-kind, and time filters.
+- `trove.moment_timeline` — Read one bounded cited moment timeline for exactly one resolved author.
+- `trove.moment_interactions` — Read bounded cited moment interactions for one moment citation or one resolved actor.
+- `trove.message_stats` — Read bounded metadata-only message count aggregates over one bounded time window.
+- `trove.pending_replies` — Read bounded metadata-only private conversations whose latest incoming message awaits a reply.
+- `trove.messages_by_kind` — Read one bounded cited message listing filtered by exact content kind, newest first.
 - `trove.media_fetch` — Materialize one cited media object through a bounded verified path.
 - `trove.media_enrich` — Read cached media understanding or create one bounded durable enrichment operation.
+- `trove.media_enrich_plan` — Read a bounded read-only preview of media understanding work for one scope: candidate counts by state, local/cloud split, cost and duration estimates.
 - `trove.operation_status` — Read one durable operation state and its typed continuation owner.
 - `trove.operation_continue` — Continue an awaiting caller operation with an opaque single-operation token.
 

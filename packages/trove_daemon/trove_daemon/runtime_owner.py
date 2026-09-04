@@ -184,6 +184,7 @@ class RuntimeOwner:
                     provider_factory=self._counted_provider_factory,
                     max_workers=self.search_workers,
                     max_queue=self.search_queue,
+                    page_cache_kib=self.read_page_cache_kib,
                     result_cache_max_entries=self.result_cache_max_entries,
                     result_cache_max_bytes=self.result_cache_max_bytes,
                 )

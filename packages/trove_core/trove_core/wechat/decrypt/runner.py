@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from contextlib import closing
+
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 import json
@@ -73,7 +75,7 @@ class DecryptEngine(Protocol):
 def sqlite_readable(path: Path) -> bool:
     try:
         uri = path.resolve().as_uri() + '?mode=ro'
-        with sqlite3.connect(uri, uri=True) as conn:
+        with closing(sqlite3.connect(uri, uri=True)) as conn:
             conn.execute('SELECT name FROM sqlite_master LIMIT 1').fetchone()
         return True
     except sqlite3.DatabaseError:
@@ -83,13 +85,90 @@ def sqlite_readable(path: Path) -> bool:
 def sqlite_schema_fingerprint(path: Path) -> tuple[int | None, str | None]:
     try:
         uri = path.resolve().as_uri() + '?mode=ro'
-        with sqlite3.connect(uri, uri=True) as conn:
+        with closing(sqlite3.connect(uri, uri=True)) as conn:
             rows = list(conn.execute("SELECT name,sql FROM sqlite_master WHERE type IN ('table','index') ORDER BY name"))
             table_count = sum(1 for name, _sql in rows if name)
             fp = stable_hash('|'.join(f'{name}:{sql}' for name, sql in rows), length=20)
             return table_count, fp
     except sqlite3.DatabaseError:
         return None, None
+
+
+MESSAGE_CREATE_TIME_INDEX_PREFIX = 'trove_msg_create_time_'
+
+
+def _message_tables_missing_create_time_index(conn: sqlite3.Connection) -> list[str]:
+    tables = [
+        str(row[0])
+        for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'Msg_%'")
+    ]
+    missing: list[str] = []
+    for table in tables:
+        columns = {str(row[1]) for row in conn.execute(f'PRAGMA table_info("{table}")')}
+        if 'create_time' not in columns:
+            continue
+        index_name = MESSAGE_CREATE_TIME_INDEX_PREFIX + table
+        found = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='index' AND name = ?", (index_name,),
+        ).fetchone()
+        if found is None:
+            missing.append(table)
+    return missing
+
+
+def _ensure_message_create_time_indexes(path: Path) -> tuple[int | None, str | None] | None:
+    """Index Msg_* create_time so incremental sync avoids full table scans.
+
+    Importers open snapshots read-only, so the producer installs the index on
+    its own copies.  The importer's watermark predicate stays correct without
+    it, hence failure here is reported as "no change" rather than failing the
+    decrypt run.  Returns the refreshed schema fingerprint when an index was
+    added, or ``None`` when the file was already covered.
+    """
+
+    with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as conn:
+        missing = _message_tables_missing_create_time_index(conn)
+    if not missing:
+        return None
+    with closing(sqlite3.connect(f'file:{path}?mode=rw', uri=True)) as conn:
+        for table in missing:
+            conn.execute(
+                f'CREATE INDEX IF NOT EXISTS "{MESSAGE_CREATE_TIME_INDEX_PREFIX}{table}"'
+                f' ON "{table}"(create_time)'
+            )
+        conn.commit()
+    return sqlite_schema_fingerprint(path)
+
+
+def _ensure_reused_create_time_indexes(
+    reused: DecryptFileResult,
+    *,
+    previous_run: Path,
+    item: DecryptFilePlan,
+    dest: Path,
+) -> DecryptFileResult:
+    if item.file_family != 'message':
+        return reused
+    try:
+        prior_output = require_existing_under(previous_run / item.output_relative, previous_run)
+        with closing(sqlite3.connect(f'file:{dest}?mode=ro', uri=True)) as conn:
+            if not _message_tables_missing_create_time_index(conn):
+                return reused
+        # ``dest`` is a hard link into the published run.  Index a private copy
+        # and swap it in so the published generation's bytes never change.
+        tmp = dest.with_name(dest.name + '.trove-index-tmp')
+        tmp.unlink(missing_ok=True)
+        try:
+            shutil.copy2(prior_output, tmp)
+            _ensure_message_create_time_indexes(tmp)
+            os.replace(tmp, dest)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
+        row_count, schema_fingerprint = sqlite_schema_fingerprint(dest)
+        return replace(reused, row_count=row_count, schema_fingerprint=schema_fingerprint)
+    except (OSError, sqlite3.DatabaseError, ValueError):
+        return reused
 
 
 class SQLCipherCLIEngine:
@@ -517,7 +596,12 @@ def _complete_decrypt_plan(
             except OSError:
                 stable_source = False
             if stable_source:
-                results.append(reused)
+                results.append(_ensure_reused_create_time_indexes(
+                    reused,
+                    previous_run=previous_run,
+                    item=item,
+                    dest=dest,
+                ))
                 continue
             dest.unlink(missing_ok=True)
         key: str | None = None
@@ -532,6 +616,13 @@ def _complete_decrypt_plan(
                         # Defer missing key to per-file result.
                 key = key_cache.get(secret_name)
         result = engine.decrypt(item.source_path, dest, key=key, file_family=item.file_family)
+        if result.status in {'decrypted', 'copied_plaintext'} and item.file_family == 'message':
+            try:
+                indexed = _ensure_message_create_time_indexes(dest)
+            except (OSError, sqlite3.DatabaseError):
+                indexed = None
+            if indexed is not None:
+                result = replace(result, row_count=indexed[0], schema_fingerprint=indexed[1])
         results.append(DecryptFileResult(
             account_ref_hash=item.account_ref_hash,
             file_name=item.source_path.name,

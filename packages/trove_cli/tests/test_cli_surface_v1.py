@@ -56,7 +56,7 @@ class CLISurfaceV1Tests(unittest.TestCase):
         ])
         self.assertEqual(route.spec.capability_id, 'trove.search')
         self.assertEqual(payload, {
-            'query': 'needle', 'semantic': 'auto', 'limit': 100, 'account_id': 'account-a',
+            'query': 'needle', 'semantic': 'auto', 'limit': 10, 'account_id': 'account-a',
         })
         self.assertEqual(namespace.vault, '/tmp/vault')
 

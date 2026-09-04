@@ -6,12 +6,43 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
+from unittest import mock
 
-from trove_core.wechat.importers.wechat_decrypted import WeChatDecryptedAccountImporter, decode_content, msg_table_for
+from trove_core.wechat.decrypt.runner import MESSAGE_CREATE_TIME_INDEX_PREFIX
+from trove_core.wechat.importers.wechat_decrypted import WeChatDecryptedAccountImporter, decode_content, msg_table_for, stable_id
 from trove_core.wechat.import_job import run_import_job
 from trove_core.store.sqlite_store import SQLiteStore
 
 class WeChatDecryptedImporterTests(unittest.TestCase):
+    def test_importer_explicitly_closes_every_source_snapshot_connection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            account = self.make_account_dir(Path(directory))
+            opened: list[sqlite3.Connection] = []
+            real_connect = sqlite3.connect
+
+            class TrackedConnection(sqlite3.Connection):
+                closed = False
+
+                def close(self) -> None:
+                    self.closed = True
+                    super().close()
+
+            def tracked_connect(*args, **kwargs):
+                kwargs['factory'] = TrackedConnection
+                connection = real_connect(*args, **kwargs)
+                opened.append(connection)
+                return connection
+
+            with mock.patch(
+                'trove_core.wechat.importers.wechat_decrypted.sqlite3.connect',
+                side_effect=tracked_connect,
+            ):
+                WeChatDecryptedAccountImporter(account).load()
+
+            self.assertGreaterEqual(len(opened), 3)
+            self.assertTrue(all(connection.closed for connection in opened))
+
     def test_zstd_message_content_is_decompressed_before_appmsg_parsing(self):
         compressed = base64.b64decode(
             'KLUv/QRYzQEAtAI8bXNnPjxhcHB0eXBlPjU8Lzx0aXRsZT5ac3Rk5Y2h54mHPC88Ly9tc2c+BABTEbzmBHBxbZEDNLw5sg=='
@@ -189,3 +220,177 @@ class WeChatDecryptedImporterTests(unittest.TestCase):
             self.assertEqual(second.status, 'completed')
             with store.connect() as conn:
                 self.assertEqual(conn.execute('SELECT COUNT(*) FROM message_payloads').fetchone()[0], 1)
+
+    def test_incremental_load_returns_exact_watermark_union_without_duplicates(self):
+        with tempfile.TemporaryDirectory() as d:
+            acct = self.make_account_dir(Path(d))
+            table = msg_table_for('room@chatroom')
+            importer = WeChatDecryptedAccountImporter(acct)
+            waterlines = importer.waterline_snapshot()
+            key = next(iter(waterlines))
+            self.assertEqual(waterlines[key]['max_local_id'], 2)
+            with sqlite3.connect(acct / 'message_0.db') as conn:
+                # A late row lands below the local_id watermark with a fresh
+                # create_time, as happens when WeChat reuses a vacated rowid.
+                conn.execute(f'DELETE FROM {table} WHERE local_id=2')
+                conn.execute(
+                    f'INSERT INTO {table}(local_id,real_sender_id,create_time,message_content) VALUES (?,?,?,?)',
+                    (2, 2, 1710000999, '乱序补发'),
+                )
+                # An appended row whose create_time sorts before the late row.
+                conn.execute(
+                    f'INSERT INTO {table}(local_id,real_sender_id,create_time,message_content) VALUES (?,?,?,?)',
+                    (3, 2, 1710000500, '正常追加'),
+                )
+                conn.commit()
+
+            _, _, messages = importer.load(waterlines=waterlines)
+
+            self.assertEqual(
+                [(message.local_id, message.content) for message in messages],
+                [(3, '正常追加'), (2, '乱序补发')],
+            )
+            update = importer.last_waterline_updates[key]
+            self.assertEqual(update['max_local_id'], 3)
+            self.assertEqual(update['max_create_time'], 1710000999)
+
+            _, _, second = importer.load(waterlines=importer.last_waterline_updates)
+            self.assertEqual(second, [])
+
+    def test_incremental_load_applies_kind_filter_to_both_watermark_branches(self):
+        with tempfile.TemporaryDirectory() as d:
+            acct = self.make_account_dir(Path(d))
+            table = msg_table_for('room@chatroom')
+            importer = WeChatDecryptedAccountImporter(acct)
+            waterlines = importer.waterline_snapshot()
+            with sqlite3.connect(acct / 'message_0.db') as conn:
+                conn.execute(f'DELETE FROM {table} WHERE local_id=2')
+                conn.execute(
+                    f'INSERT INTO {table}(local_id,local_type,real_sender_id,create_time,message_content) VALUES (?,?,?,?,?)',
+                    (2, 49, 2, 1710000999, '<msg><appmsg><type>5</type><title>旧卡片</title></appmsg></msg>'),
+                )
+                conn.execute(
+                    f'INSERT INTO {table}(local_id,real_sender_id,create_time,message_content) VALUES (?,?,?,?)',
+                    (3, 2, 1710000500, '普通文本'),
+                )
+                conn.execute(
+                    f'INSERT INTO {table}(local_id,local_type,real_sender_id,create_time,message_content) VALUES (?,?,?,?,?)',
+                    (4, 49, 2, 1710000600, '<msg><appmsg><type>5</type><title>新卡片</title></appmsg></msg>'),
+                )
+                conn.commit()
+
+            _, _, messages = importer.load(waterlines=waterlines, content_kinds={'appmsg'})
+
+            self.assertEqual([message.local_id for message in messages], [4, 2])
+            self.assertTrue(all(message.content_kind == 'appmsg' for message in messages))
+
+    def test_incremental_load_matches_legacy_or_predicate_on_shuffled_rows(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            acct = root / 'com.tencent.xinWeChat__wxid_demo'
+            acct.mkdir()
+            with sqlite3.connect(acct / 'contact.db') as conn:
+                conn.execute('CREATE TABLE contact (username TEXT, remark TEXT, nick_name TEXT, alias TEXT)')
+                conn.execute('CREATE TABLE chatroom_member (chatroom TEXT, member TEXT)')
+                conn.execute('INSERT INTO contact(username,remark,nick_name,alias) VALUES (?,?,?,?)', ('alice', 'Alice', '', ''))
+                conn.commit()
+            table = msg_table_for('alice')
+            with sqlite3.connect(acct / 'message_0.db') as conn:
+                conn.execute('CREATE TABLE Name2Id (user_name TEXT, is_session INTEGER)')
+                conn.execute('INSERT INTO Name2Id(rowid,user_name,is_session) VALUES (1,?,1)', ('alice',))
+                conn.execute(f'''CREATE TABLE {table} (
+                    local_id INTEGER, real_sender_id INTEGER, create_time INTEGER, message_content TEXT
+                )''')
+                for local_id in range(1, 31):
+                    # Deterministic shuffle with one duplicate create_time pair
+                    # (local_id 1 and 30) to pin down tie ordering.
+                    conn.execute(
+                        f'INSERT INTO {table}(local_id,real_sender_id,create_time,message_content) VALUES (?,?,?,?)',
+                        (local_id, 1, 1710000000 + (local_id * 8) % 29, f'消息{local_id}'),
+                    )
+                conn.commit()
+                gold = [
+                    row[0]
+                    for row in conn.execute(
+                        f'SELECT local_id FROM {table} WHERE (local_id > ? OR create_time > ?)'
+                        ' ORDER BY create_time, local_id',
+                        (17, 1710000010),
+                    )
+                ]
+
+            importer = WeChatDecryptedAccountImporter(acct)
+            key = (importer.account_id, stable_id('conv', f'{acct.name}:alice'), 'message_0')
+            waterlines = {key: {'max_local_id': 17, 'max_create_time': 1710000010, 'max_timestamp': ''}}
+
+            _, _, messages = importer.load(waterlines=waterlines)
+            self.assertEqual([message.local_id for message in messages], gold)
+            self.assertGreater(len(gold), 7)
+
+            _, _, limited = importer.load(limit_per_shard=7, waterlines=waterlines)
+            self.assertEqual([message.local_id for message in limited], gold[:7])
+
+    def test_watermark_branches_use_rowid_range_and_create_time_index(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            acct = root / 'com.tencent.xinWeChat__wxid_demo'
+            acct.mkdir()
+            with sqlite3.connect(acct / 'contact.db') as conn:
+                conn.execute('CREATE TABLE contact (username TEXT, remark TEXT, nick_name TEXT, alias TEXT)')
+                conn.execute('CREATE TABLE chatroom_member (chatroom TEXT, member TEXT)')
+                conn.execute('INSERT INTO contact(username,remark,nick_name,alias) VALUES (?,?,?,?)', ('alice', 'Alice', '', ''))
+                conn.commit()
+            table = msg_table_for('alice')
+            with sqlite3.connect(acct / 'message_0.db') as conn:
+                conn.execute('CREATE TABLE Name2Id (user_name TEXT, is_session INTEGER)')
+                conn.execute('INSERT INTO Name2Id(rowid,user_name,is_session) VALUES (1,?,1)', ('alice',))
+                conn.execute(
+                    f'CREATE TABLE {table} ('
+                    'local_id INTEGER PRIMARY KEY, real_sender_id INTEGER, create_time INTEGER, message_content TEXT)'
+                )
+                conn.execute(f'CREATE INDEX {MESSAGE_CREATE_TIME_INDEX_PREFIX}{table} ON {table}(create_time)')
+                conn.executemany(
+                    f'INSERT INTO {table}(local_id,real_sender_id,create_time,message_content) VALUES (?,?,?,?)',
+                    [(local_id, 1, 1710000000 + local_id, f'消息{local_id}') for local_id in range(1, 6)],
+                )
+                conn.commit()
+            importer = WeChatDecryptedAccountImporter(acct)
+            waterlines = importer.waterline_snapshot()
+
+            captured: list[tuple[str, tuple[Any, ...]]] = []
+            real_connect = sqlite3.connect
+
+            class RecordingConnection(sqlite3.Connection):
+                def execute(self, sql, parameters=(), /):
+                    if f'FROM "{table}"' in sql:
+                        captured.append((sql, tuple(parameters)))
+                    return super().execute(sql, parameters)
+
+            with mock.patch(
+                'trove_core.wechat.importers.wechat_decrypted.sqlite3.connect',
+                side_effect=lambda *args, **kwargs: real_connect(*args, factory=RecordingConnection, **kwargs),
+            ):
+                _, _, messages = WeChatDecryptedAccountImporter(acct).load(waterlines=waterlines)
+
+            self.assertEqual(messages, [])
+            self.assertEqual(len(captured), 2)
+            with sqlite3.connect(acct / 'message_0.db') as conn:
+                plans = [
+                    [row[-1] for row in conn.execute('EXPLAIN QUERY PLAN ' + sql, params)]
+                    for sql, params in captured
+                ]
+            primary_plan, fallback_plan = plans
+            self.assertEqual(captured[0][1], (5,))
+            self.assertFalse(any('SCAN' in detail for detail in primary_plan), primary_plan)
+            self.assertTrue(
+                any('SEARCH' in detail and 'PRIMARY KEY' in detail.upper() for detail in primary_plan),
+                primary_plan,
+            )
+            self.assertEqual(captured[1][1], (1710000005,))
+            self.assertFalse(any('SCAN' in detail and table in detail for detail in fallback_plan), fallback_plan)
+            self.assertTrue(
+                any(
+                    'SEARCH' in detail and MESSAGE_CREATE_TIME_INDEX_PREFIX in detail
+                    for detail in fallback_plan
+                ),
+                fallback_plan,
+            )

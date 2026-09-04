@@ -13,6 +13,7 @@ import socket
 import stat
 import struct
 import subprocess
+import threading
 import time
 from typing import Any, Callable, Mapping
 from urllib.error import URLError
@@ -24,6 +25,8 @@ _VERSION = 1
 _NAME_RE = re.compile(r'[a-z][a-z0-9_-]{0,31}')
 _NONCE_RE = re.compile(r'[0-9a-f]{32}')
 _HASH_RE = re.compile(r'[0-9a-f]{64}')
+MANAGED_LOG_MAX_BYTES = 5 * 1024 * 1024
+MANAGED_LOG_POLL_SECONDS = 5.0
 
 # A managed child receives only the variables required to locate its runtime,
 # Agent Switch, local caches, and explicit product configuration.  In
@@ -167,6 +170,69 @@ class ManagedProcessError(RuntimeError):
             'error': {'code': self.code, 'message': str(self)},
             'raw_content_included': False,
         }
+
+
+class ManagedLogGuard:
+    """Keep inherited managed-process stdout/stderr files strictly bounded."""
+
+    def __init__(
+        self,
+        *,
+        file_descriptors: tuple[int, ...] = (1, 2),
+        max_bytes: int = MANAGED_LOG_MAX_BYTES,
+        poll_seconds: float = MANAGED_LOG_POLL_SECONDS,
+    ):
+        if type(max_bytes) is not int or max_bytes < 1024:
+            raise ValueError('managed log byte bound is invalid')
+        if poll_seconds <= 0:
+            raise ValueError('managed log poll interval is invalid')
+        self.file_descriptors = tuple(int(fd) for fd in file_descriptors)
+        self.max_bytes = max_bytes
+        self.poll_seconds = float(poll_seconds)
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def enforce_once(self) -> int:
+        truncated = 0
+        identities: set[tuple[int, int]] = set()
+        for fd in self.file_descriptors:
+            try:
+                info = os.fstat(fd)
+                identity = (int(info.st_dev), int(info.st_ino))
+                if (
+                    identity in identities
+                    or not stat.S_ISREG(info.st_mode)
+                    or info.st_nlink != 1
+                    or info.st_size <= self.max_bytes
+                ):
+                    continue
+                identities.add(identity)
+                os.ftruncate(fd, 0)
+                truncated += 1
+            except OSError:
+                continue
+        return truncated
+
+    def start(self) -> None:
+        if self._thread is not None:
+            return
+        self.enforce_once()
+        self._thread = threading.Thread(
+            target=self._run,
+            name='trove-managed-log-guard',
+            daemon=True,
+        )
+        self._thread.start()
+
+    def _run(self) -> None:
+        while not self._stop.wait(self.poll_seconds):
+            self.enforce_once()
+
+    def close(self) -> None:
+        self._stop.set()
+        thread, self._thread = self._thread, None
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=max(0.1, self.poll_seconds * 2))
 
 
 @dataclass(frozen=True, slots=True)
@@ -530,7 +596,10 @@ class ManagedProcessManager:
         process_env = _minimal_child_environment(source_env)
         process_env['TROVE_MANAGED_NONCE'] = nonce
         log_path = self.log_path(name)
-        handle = log_path.open('ab')
+        # A new process generation never inherits unbounded output from an old
+        # generation. The child-side ManagedLogGuard also bounds one long-lived
+        # generation while it is running.
+        handle = log_path.open('wb')
         os.chmod(log_path, 0o600)
         try:
             process = self.popen(
@@ -672,3 +741,15 @@ class ManagedProcessManager:
             'identity_verified': True,
             'raw_content_included': False,
         }
+
+
+__all__ = [
+    'MANAGED_LOG_MAX_BYTES',
+    'MANAGED_LOG_POLL_SECONDS',
+    'ManagedLogGuard',
+    'ManagedProcessError',
+    'ManagedProcessManager',
+    'ManagedProcessRecord',
+    'ProcessInspector',
+    'health_probe',
+]

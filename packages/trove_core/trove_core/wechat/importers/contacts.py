@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 from dataclasses import asdict, dataclass
 from pathlib import Path
 import hashlib
@@ -60,7 +62,7 @@ class ContactIdentityImporter:
         excluded_counts: dict[str, int] = {}
         decisions: dict[str, ScopeDecision] = {}
         try:
-            with sqlite3.connect(f'file:{self.contact_db}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{self.contact_db}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
                 table = 'contact' if 'contact' in tables else next((t for t in tables if 'contact' in t.lower()), None)

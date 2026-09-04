@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 from dataclasses import replace
 import hashlib
 import json
@@ -97,7 +99,7 @@ def _vault_account_binding(
         raise ReplyMigrationError('Vault index is unavailable')
     uri = database.resolve().as_uri() + '?mode=ro'
     try:
-        with sqlite3.connect(uri, uri=True) as conn:
+        with closing(sqlite3.connect(uri, uri=True)) as conn:
             account_rows = int(conn.execute(
                 'SELECT COUNT(*) FROM accounts WHERE account_id=?',
                 (account_id,),

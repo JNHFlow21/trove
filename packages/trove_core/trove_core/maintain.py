@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -334,7 +336,7 @@ def inspect_schema_meta(sqlite_path: Path) -> dict[str, Any]:
     if not sqlite_path.exists():
         return {'exists': False}
     try:
-        with sqlite3.connect(sqlite_path) as conn:
+        with closing(sqlite3.connect(sqlite_path)) as conn:
             table = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_meta'").fetchone()
             user_version = int(conn.execute('PRAGMA user_version').fetchone()[0])
             user_tables = [
@@ -527,8 +529,9 @@ def optimize_storage(
         conn.commit()
     vacuumed = False
     if vacuum or (page_count > 0 and freelist_count / max(1, page_count) > 0.5 and store.path.exists() and store.path.stat().st_size < 128 * 1024 * 1024):
-        with sqlite3.connect(store.path) as conn:
+        with closing(sqlite3.connect(store.path)) as conn:
             conn.execute('VACUUM')
+            conn.commit()
         vacuumed = True
     wal_path = Path(str(store.path) + '-wal')
     try:
@@ -714,8 +717,9 @@ def rotate_sqlite_backups(sqlite_path: Path, *, retention: int, create: bool = T
     if create and sqlite_path.exists():
         stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
         dest = sqlite_path.with_name(f'{sqlite_path.name}.bak-{stamp}')
-        with sqlite3.connect(sqlite_path) as source, sqlite3.connect(dest) as target:
+        with closing(sqlite3.connect(sqlite_path)) as source, closing(sqlite3.connect(dest)) as target:
             source.backup(target)
+            target.commit()
         dest.chmod(0o600)
         created = dest.name
     backups = sorted(sqlite_path.parent.glob(f'{sqlite_path.name}.bak-*'), key=lambda p: p.stat().st_mtime, reverse=True)

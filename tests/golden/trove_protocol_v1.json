@@ -1,6 +1,6 @@
 {
   "protocol": "trove/1",
-  "catalog_sha256": "4d8393bb756fbf97618e4ce328b04c0736dfcca4fe5007ecadd5f42007e03078",
+  "catalog_sha256": "5c25bf992bf8c27fda98b048014bac7421525388fc936ec73007818b98dd0ff5",
   "packs": {
     "standard": [
       "trove.capabilities",
@@ -11,8 +11,15 @@
       "trove.context",
       "trove.profile",
       "trove.files_list",
+      "trove.favorites_list",
+      "trove.moment_timeline",
+      "trove.moment_interactions",
+      "trove.message_stats",
+      "trove.pending_replies",
+      "trove.messages_by_kind",
       "trove.media_fetch",
       "trove.media_enrich",
+      "trove.media_enrich_plan",
       "trove.operation_status",
       "trove.operation_continue"
     ],
@@ -25,8 +32,15 @@
       "trove.context",
       "trove.profile",
       "trove.files_list",
+      "trove.favorites_list",
+      "trove.moment_timeline",
+      "trove.moment_interactions",
+      "trove.message_stats",
+      "trove.pending_replies",
+      "trove.messages_by_kind",
       "trove.media_fetch",
       "trove.media_enrich",
+      "trove.media_enrich_plan",
       "trove.operation_status",
       "trove.operation_continue",
       "trove.profile_build",
@@ -46,11 +60,18 @@
       "trove.context",
       "trove.profile",
       "trove.files_list",
+      "trove.favorites_list",
+      "trove.moment_timeline",
+      "trove.moment_interactions",
+      "trove.message_stats",
+      "trove.pending_replies",
+      "trove.messages_by_kind",
       "trove.reply_status",
       "trove.reply_reviews",
       "trove.reply_activity",
       "trove.media_fetch",
       "trove.media_enrich",
+      "trove.media_enrich_plan",
       "trove.operation_status",
       "trove.operation_continue",
       "trove.profile_build",
@@ -418,8 +439,8 @@
           "limit": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 1000,
-            "default": 100
+            "maximum": 50,
+            "default": 10
           },
           "cursor": {
             "type": [
@@ -710,6 +731,594 @@
       }
     },
     {
+      "id": "trove.favorites_list",
+      "mcp": "trove_favorites_list",
+      "cli": [
+        "favorites",
+        "list"
+      ],
+      "description": "Read one bounded cited favorites list with keyword, derived-kind, and time filters.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 131072,
+      "scoped": true,
+      "paginated": true,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "keyword": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "note",
+              "media",
+              null
+            ]
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 20
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.moment_timeline",
+      "mcp": "trove_moment_timeline",
+      "cli": [
+        "moments",
+        "timeline"
+      ],
+      "description": "Read one bounded cited moment timeline for exactly one resolved author.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 131072,
+      "scoped": true,
+      "paginated": true,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 20
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "target"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.moment_interactions",
+      "mcp": "trove_moment_interactions",
+      "cli": [
+        "moments",
+        "interactions"
+      ],
+      "description": "Read bounded cited moment interactions for one moment citation or one resolved actor.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 131072,
+      "scoped": true,
+      "paginated": true,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "citation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 20
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.message_stats",
+      "mcp": "trove_message_stats",
+      "cli": [
+        "messages",
+        "stats"
+      ],
+      "description": "Read bounded metadata-only message count aggregates over one bounded time window.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dimension": {
+            "type": "string",
+            "enum": [
+              "by_conversation",
+              "by_sender"
+            ],
+            "default": "by_conversation"
+          },
+          "conversation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.pending_replies",
+      "mcp": "trove_pending_replies",
+      "cli": [
+        "messages",
+        "pending"
+      ],
+      "description": "Read bounded metadata-only private conversations whose latest incoming message awaits a reply.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "trove.messages_by_kind",
+      "mcp": "trove_messages_by_kind",
+      "cli": [
+        "messages",
+        "by-kind"
+      ],
+      "description": "Read one bounded cited message listing filtered by exact content kind, newest first.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 131072,
+      "scoped": true,
+      "paginated": true,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "image",
+              "video",
+              "voice",
+              "sticker",
+              "link",
+              "file",
+              "miniapp",
+              "transfer",
+              "redpacket",
+              "contact_card"
+            ]
+          },
+          "conversation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "direction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "incoming",
+              "outgoing",
+              "unknown",
+              null
+            ]
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 20
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
+    },
+    {
       "id": "trove.reply_status",
       "mcp": "trove_reply_status",
       "cli": [
@@ -951,6 +1560,130 @@
         }
       },
       "provider_requirement": "media_provider"
+    },
+    {
+      "id": "trove.media_enrich_plan",
+      "mcp": "trove_media_enrich_plan",
+      "cli": [
+        "media",
+        "plan"
+      ],
+      "description": "Read a bounded read-only preview of media understanding work for one scope: candidate counts by state, local/cloud split, cost and duration estimates.",
+      "pack": "standard",
+      "risk": "read",
+      "replay_policy": "read",
+      "trust_class": "untrusted_evidence",
+      "response_budget": 65536,
+      "scoped": true,
+      "paginated": false,
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "conversation_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "author_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "media_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "image",
+                "voice",
+                "file"
+              ]
+            },
+            "maxItems": 3
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ocr",
+                "caption",
+                "transcribe"
+              ]
+            },
+            "maxItems": 3
+          },
+          "execution": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "local_only"
+            ],
+            "default": "auto"
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 200
+          },
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "$defs": {
+          "citation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "uri",
+              "account_id",
+              "source_type"
+            ]
+          }
+        }
+      }
     },
     {
       "id": "trove.operation_status",

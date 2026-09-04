@@ -98,6 +98,20 @@ def _output(*, scoped: bool = False) -> dict[str, Any]:
 
 
 _LIMIT = {'type': 'integer', 'minimum': 1, 'maximum': 1000, 'default': 100}
+# trove.search is bounded by SEARCH_RESULTS (1..50, default 10) on the daemon
+# side; keep the wire schema identical so a defaulted CLI call validates
+# instead of failing daemon-side with invalid_limit.
+_SEARCH_LIMIT = {'type': 'integer', 'minimum': 1, 'maximum': 50, 'default': 10}
+_MOMENT_LIMIT = {'type': 'integer', 'minimum': 1, 'maximum': 100, 'default': 50}
+_FAVORITE_LIMIT = {'type': 'integer', 'minimum': 1, 'maximum': 100, 'default': 50}
+_STATS_LIMIT = {'type': 'integer', 'minimum': 1, 'maximum': 50, 'default': 10}
+_PENDING_LIMIT = {'type': 'integer', 'minimum': 1, 'maximum': 50, 'default': 20}
+_KIND_LIMIT = {'type': 'integer', 'minimum': 1, 'maximum': 50, 'default': 20}
+_PLAN_LIMIT = {'type': 'integer', 'minimum': 1, 'maximum': 1000, 'default': 200}
+_MESSAGE_KINDS = [
+    'text', 'image', 'video', 'voice', 'sticker',
+    'link', 'file', 'miniapp', 'transfer', 'redpacket', 'contact_card',
+]
 _CURSOR = {'type': ['string', 'null'], 'minLength': 20}
 _TARGET = {'type': ['string', 'null'], 'minLength': 1}
 
@@ -166,7 +180,7 @@ CATALOG: tuple[CapabilitySpec, ...] = (
     _spec(
         'trove.search', 'trove_search', ('search',),
         'Search bounded local evidence with explicit retrieval status and citations.',
-        properties={'query': {'type': 'string', 'minLength': 1}, 'target': _TARGET, 'semantic': {'type': 'string', 'enum': ['auto', 'on', 'off'], 'default': 'auto'}, 'limit': _LIMIT, 'cursor': _CURSOR},
+        properties={'query': {'type': 'string', 'minLength': 1}, 'target': _TARGET, 'semantic': {'type': 'string', 'enum': ['auto', 'on', 'off'], 'default': 'auto'}, 'limit': _SEARCH_LIMIT, 'cursor': _CURSOR},
         required=('query',), scoped=True, paginated=True,
     ),
     _spec(
@@ -186,6 +200,59 @@ CATALOG: tuple[CapabilitySpec, ...] = (
         'List bounded file evidence without materializing content.',
         properties={'target': _TARGET, 'conversation_id': _TARGET, 'media_types': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 16}, 'limit': _LIMIT, 'cursor': _CURSOR},
         scoped=True, paginated=True,
+    ),
+    _spec(
+        'trove.favorites_list', 'trove_favorites_list', ('favorites', 'list'),
+        'Read one bounded cited favorites list with keyword, derived-kind, and time filters.',
+        response_budget=131_072,
+        properties={
+            'keyword': _TARGET,
+            'kind': {'type': ['string', 'null'], 'enum': ['note', 'media', None]},
+            'since': _TARGET, 'until': _TARGET, 'limit': _FAVORITE_LIMIT, 'cursor': _CURSOR,
+        },
+        scoped=True, paginated=True,
+    ),
+    _spec(
+        'trove.moment_timeline', 'trove_moment_timeline', ('moments', 'timeline'),
+        'Read one bounded cited moment timeline for exactly one resolved author.',
+        response_budget=131_072,
+        properties={'target': {'type': 'string', 'minLength': 1}, 'since': _TARGET, 'until': _TARGET, 'limit': _MOMENT_LIMIT, 'cursor': _CURSOR},
+        required=('target',), scoped=True, paginated=True,
+    ),
+    _spec(
+        'trove.moment_interactions', 'trove_moment_interactions', ('moments', 'interactions'),
+        'Read bounded cited moment interactions for one moment citation or one resolved actor.',
+        response_budget=131_072,
+        properties={'citation': _TARGET, 'target': _TARGET, 'since': _TARGET, 'until': _TARGET, 'limit': _MOMENT_LIMIT, 'cursor': _CURSOR},
+        scoped=True, paginated=True,
+    ),
+    _spec(
+        'trove.message_stats', 'trove_message_stats', ('messages', 'stats'),
+        'Read bounded metadata-only message count aggregates over one bounded time window.',
+        properties={
+            'dimension': {'type': 'string', 'enum': ['by_conversation', 'by_sender'], 'default': 'by_conversation'},
+            'conversation_id': _TARGET,
+            'since': _TARGET, 'until': _TARGET, 'limit': _STATS_LIMIT,
+        },
+        scoped=True,
+    ),
+    _spec(
+        'trove.pending_replies', 'trove_pending_replies', ('messages', 'pending'),
+        'Read bounded metadata-only private conversations whose latest incoming message awaits a reply.',
+        properties={'since': _TARGET, 'until': _TARGET, 'limit': _PENDING_LIMIT},
+        scoped=True,
+    ),
+    _spec(
+        'trove.messages_by_kind', 'trove_messages_by_kind', ('messages', 'by-kind'),
+        'Read one bounded cited message listing filtered by exact content kind, newest first.',
+        response_budget=131_072,
+        properties={
+            'kind': {'type': 'string', 'enum': _MESSAGE_KINDS},
+            'conversation_id': _TARGET,
+            'direction': {'type': ['string', 'null'], 'enum': ['incoming', 'outgoing', 'unknown', None]},
+            'since': _TARGET, 'until': _TARGET, 'limit': _KIND_LIMIT, 'cursor': _CURSOR,
+        },
+        required=('kind',), scoped=True, paginated=True,
     ),
     _spec(
         'trove.reply_status', 'trove_reply_status', ('reply', 'status'),
@@ -221,6 +288,19 @@ CATALOG: tuple[CapabilitySpec, ...] = (
         'Read cached media understanding or create one bounded durable enrichment operation.',
         properties={'citation': {'type': 'string', 'minLength': 1}, 'kind': {'type': 'string', 'enum': ['transcribe', 'annotate']}},
         required=('citation', 'kind'), scoped=True, provider_requirement='media_provider', replay_policy='journaled',
+    ),
+    _spec(
+        'trove.media_enrich_plan', 'trove_media_enrich_plan', ('media', 'plan'),
+        'Read a bounded read-only preview of media understanding work for one scope: candidate counts by state, local/cloud split, cost and duration estimates.',
+        properties={
+            'conversation_id': _TARGET,
+            'author_id': _TARGET,
+            'media_types': {'type': 'array', 'items': {'type': 'string', 'enum': ['image', 'voice', 'file']}, 'maxItems': 3},
+            'kinds': {'type': 'array', 'items': {'type': 'string', 'enum': ['ocr', 'caption', 'transcribe']}, 'maxItems': 3},
+            'execution': {'type': 'string', 'enum': ['auto', 'local_only'], 'default': 'auto'},
+            'since': _TARGET, 'until': _TARGET, 'limit': _PLAN_LIMIT,
+        },
+        scoped=True,
     ),
     _spec(
         'trove.operation_status', 'trove_operation_status', ('operation', 'status'),

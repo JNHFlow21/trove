@@ -380,7 +380,10 @@ class SearchRuntimeCache:
         max_workers: int = 8,
         max_queue: int = 32,
         timeout_seconds: float = 15.0,
+        engine_build_timeout_seconds: float = 120.0,
+        route_timeout_seconds: float | None = None,
         submit_timeout_seconds: float = 0.05,
+        page_cache_kib: int = 8 * 1024,
         result_cache_max_entries: int = 64,
         result_cache_max_bytes: int = 4 * 1024 * 1024,
         memo_cache_max_entries: int = 64,
@@ -388,12 +391,32 @@ class SearchRuntimeCache:
     ):
         if not isinstance(timeout_seconds, (int, float)) or timeout_seconds <= 0 or timeout_seconds > 300:
             raise ValueError('timeout_seconds must be greater than zero and at most 300')
+        if not isinstance(engine_build_timeout_seconds, (int, float)) or engine_build_timeout_seconds < timeout_seconds or engine_build_timeout_seconds > 300:
+            raise ValueError('engine_build_timeout_seconds must be at least timeout_seconds and at most 300')
+        if route_timeout_seconds is not None and (
+            not isinstance(route_timeout_seconds, (int, float))
+            or route_timeout_seconds <= 0
+            or route_timeout_seconds >= timeout_seconds
+        ):
+            raise ValueError('route_timeout_seconds must be greater than zero and less than timeout_seconds')
+        if type(page_cache_kib) is not int or not 256 <= page_cache_kib <= 1024 * 1024:
+            raise ValueError('page_cache_kib must be between 256 and 1048576')
         self.cfg = cfg
         self.provider_factory = provider_factory or (lambda: configured_embedding_provider(vault_root=cfg.root))
         self.max_workers = max_workers
         self.max_queue = max_queue
         self.timeout_seconds = float(timeout_seconds)
+        self.engine_build_timeout_seconds = float(engine_build_timeout_seconds)
+        # Optional routes (vector, episode) each get one bounded share of the
+        # request budget so a slow vector backend degrades to lexical evidence
+        # instead of failing the whole request.  The default reserves 5s of the
+        # request for the lexical routes and the fusion/rerank stages that run
+        # after them; tiny budgets keep a 20% reserve instead.
+        if route_timeout_seconds is None:
+            route_timeout_seconds = max(timeout_seconds - 5.0, timeout_seconds * 0.2)
+        self.route_timeout_seconds = float(route_timeout_seconds)
         self.submit_timeout_seconds = float(submit_timeout_seconds)
+        self.page_cache_kib = page_cache_kib
         self._lock = threading.RLock()
         self._generation = 0
         self._engine: HyperSearch | None = None
@@ -415,6 +438,10 @@ class SearchRuntimeCache:
         self._freshness_sqlite_identity: tuple[int, int] | None = None
         self._observed_generation_token: tuple[Any, ...] | None = None
         self._executor: BoundedExecutor | None = None
+        # Set for the duration of one engine build inside ``_get_locked``.
+        # ``search_with_metrics`` reads it without ``self._lock`` because the
+        # build itself holds that lock.
+        self._engine_build_active = threading.Event()
         self._cache_hits = 0
         self._cache_misses = 0
         self._singleflight_followers = 0
@@ -537,11 +564,19 @@ class SearchRuntimeCache:
     def _get_locked(self) -> HyperSearch:
         if self._engine is not None:
             return self._engine
+        self._engine_build_active.set()
+        try:
+            return self._build_engine_locked()
+        finally:
+            self._engine_build_active.clear()
+
+    def _build_engine_locked(self) -> HyperSearch:
         store = open_store(
             self.cfg.paths.sqlite_path,
             readonly=True,
             max_connections=self.max_workers + 1,
             prepared_statement_cache_size=128,
+            page_cache_kib=self.page_cache_kib,
         )
         provider = self.provider_factory()
         registry = VectorBackendRegistry(store=store, zvec_path=zvec_collection_path_for_provider(self.cfg, provider), provider=provider)
@@ -572,6 +607,7 @@ class SearchRuntimeCache:
             vector_status=self._status,
             episode_store=episode_store,
             evidence_selector=selector,
+            route_timeout_seconds=self.route_timeout_seconds,
         )
         self._engine_builds += 1
         # Daemon startup already has an explicit warmup.  Doing it again while
@@ -602,9 +638,23 @@ class SearchRuntimeCache:
         try:
             return future.result(timeout=self.timeout_seconds)
         except FutureTimeoutError as exc:
-            # Python threads cannot be killed safely.  The worker retains its
-            # generation lease and bounded slot until it reaches a safe return;
-            # the caller gets a typed timeout without spawning replacement work.
+            # A cold engine build (first query after process start or a
+            # generation invalidation) can legitimately exceed one
+            # steady-state request budget on slow external disks.  Python
+            # threads cannot be killed safely, so the worker keeps its
+            # generation lease and finishes the build either way; give the
+            # caller one bounded grace window to share that result instead of
+            # hard-failing a build that is about to complete.  The event is
+            # lock-free on purpose: the build itself holds ``self._lock``.
+            # A true overrun still raises the same typed timeout.
+            if not self._engine_build_active.is_set():
+                # Python threads cannot be killed safely.  The worker retains its
+                # generation lease and bounded slot until it reaches a safe return;
+                # the caller gets a typed timeout without spawning replacement work.
+                raise RuntimeTimedOut() from exc
+        try:
+            return future.result(timeout=self.engine_build_timeout_seconds - self.timeout_seconds)
+        except FutureTimeoutError as exc:
             raise RuntimeTimedOut() from exc
 
     def _search_once(self, request: SearchRequest) -> tuple[SearchResponse, dict[str, Any]]:
@@ -896,6 +946,8 @@ class SearchRuntimeCache:
                 'resource_counts': self._resource_counts_locked(),
                 'workers': executor_status,
                 'timeout_seconds': self.timeout_seconds,
+                'engine_build_timeout_seconds': self.engine_build_timeout_seconds,
+                'route_timeout_seconds': self.route_timeout_seconds,
             }
 
 

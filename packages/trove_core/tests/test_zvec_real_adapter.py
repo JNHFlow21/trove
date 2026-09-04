@@ -15,6 +15,7 @@ from unittest.mock import patch
 from trove_core.embedding.fake_provider import FakeEmbeddingProvider
 from trove_core.embedding.base import HybridEmbedding
 from trove_core.search.evidence_provenance import write_evidence_artifact
+from trove_core.store.change_journal import dirty_citation_count
 from trove_core.store.repositories import MultimodalRepository
 from trove_core.store.sqlite_store import SQLiteStore
 from trove_core.vector.registry import VectorBackendRegistry
@@ -42,6 +43,8 @@ class _FakeCollection:
         self.docs = []
         self.docs_by_id = {}
         self.deleted_ids = []
+        self.optimize_calls = 0
+        self.optimize_error = None
 
     def upsert(self, docs):
         self.docs.extend(docs)
@@ -59,6 +62,11 @@ class _FakeCollection:
 
     def flush(self):
         pass
+
+    def optimize(self):
+        self.optimize_calls += 1
+        if self.optimize_error is not None:
+            raise self.optimize_error
 
     def query(self, *_args, **_kwargs):
         return []
@@ -678,6 +686,72 @@ class ZvecRealAdapterTests(unittest.TestCase):
                 ZVEC_COLLECTION_CONTRACT_VERSION,
             )
 
+    def test_zvec_bulk_indexing_optimizes_segments_above_the_write_threshold(self):
+        with tempfile.TemporaryDirectory() as d:
+            vault = Path(d) / 'vault'
+            index_fixture_vault(vault, reset=True)
+            store = SQLiteStore(vault / 'index' / 'trove.sqlite')
+            path = Path(d) / 'vectors' / 'zvec-optimize-gate'
+            zvec = self._fake_zvec(path, store)
+            _FakeZvecModule.collections.clear()
+            provider = FakeEmbeddingProvider(dimensions=16)
+
+            self.assertGreater(zvec.index_all_messages(provider, batch_size=4), 0)
+            collection = _FakeZvecModule.collections[str(path)]
+            self.assertEqual(collection.optimize_calls, 0)
+            small_run = zvec._read_metadata()['segment_optimize']
+            self.assertFalse(small_run['attempted'])
+            self.assertEqual(small_run['reason_code'], 'below_min_indexed')
+
+            with patch('trove_core.vector.zvec_store._ZVEC_OPTIMIZE_MIN_INDEXED', 0):
+                zvec.index_all_messages(provider, batch_size=4)
+            self.assertEqual(collection.optimize_calls, 1)
+            bulk_run = zvec._read_metadata()['segment_optimize']
+            self.assertTrue(bulk_run['attempted'])
+            self.assertTrue(bulk_run['ok'])
+
+    def test_zvec_segment_optimize_failure_never_fails_indexing(self):
+        with tempfile.TemporaryDirectory() as d:
+            vault = Path(d) / 'vault'
+            index_fixture_vault(vault, reset=True)
+            store = SQLiteStore(vault / 'index' / 'trove.sqlite')
+            path = Path(d) / 'vectors' / 'zvec-optimize-failure'
+            zvec = self._fake_zvec(path, store)
+            _FakeZvecModule.collections.clear()
+            provider = FakeEmbeddingProvider(dimensions=16)
+            self.assertGreater(zvec.index_all_messages(provider, batch_size=4), 0)
+            collection = _FakeZvecModule.collections[str(path)]
+            collection.optimize_error = RuntimeError('simulated_optimize_stall')
+
+            with patch('trove_core.vector.zvec_store._ZVEC_OPTIMIZE_MIN_INDEXED', 0):
+                self.assertGreaterEqual(zvec.index_all_messages(provider, batch_size=4), 0)
+            report = zvec._read_metadata()['segment_optimize']
+            self.assertTrue(report['attempted'])
+            self.assertFalse(report['ok'])
+            self.assertEqual(report['reason_code'], 'RuntimeError')
+
+    def test_zvec_real_optimize_builds_the_dense_index(self):
+        with tempfile.TemporaryDirectory() as d:
+            vault = Path(d) / 'vault'
+            index_fixture_vault(vault, reset=True)
+            store = SQLiteStore(vault / 'index' / 'trove.sqlite')
+            zvec = ZVecStore(Path(d) / 'vectors' / 'zvec-optimize-real', store=store, memory_limit_mb=256)
+            if not zvec.available:
+                self.skipTest('ZVEC optional dependency is unavailable')
+            provider = FakeEmbeddingProvider(dimensions=16)
+            self.assertGreater(zvec.index_all_messages(provider, batch_size=4), 0)
+            collection = zvec._open_existing()
+            completeness = getattr(collection.stats, 'index_completeness', None) or {}
+            if 'embedding' not in completeness:
+                self.skipTest('ZVEC build does not report index completeness')
+            self.assertEqual(completeness['embedding'], 0.0)
+
+            with patch('trove_core.vector.zvec_store._ZVEC_OPTIMIZE_MIN_INDEXED', 0):
+                zvec.index_all_messages(provider, batch_size=4)
+
+            self.assertTrue(zvec._read_metadata()['segment_optimize']['ok'])
+            self.assertEqual(collection.stats.index_completeness['embedding'], 1.0)
+
     def test_zvec_atomic_rebuild_switches_collection_metadata_and_progress_together(self):
         with tempfile.TemporaryDirectory() as d:
             vault = Path(d) / 'vault'
@@ -1008,8 +1082,13 @@ class ZvecRealAdapterTests(unittest.TestCase):
 
             catchup_status = zvec.status(provider=provider)
             self.assertFalse(catchup_status['rebuild_required'])
-            self.assertTrue(catchup_status['catchup_pending'])
-            self.assertEqual(catchup_status['reason_code'], 'zvec_catchup_pending')
+            # Read-path status is ledger-authoritative: until a writer run
+            # records the new source count, the published generation still
+            # reports complete.  The dirty-citation journal is the signal
+            # that sync/maintain consume for this window.
+            self.assertFalse(catchup_status['catchup_pending'])
+            self.assertEqual(catchup_status['expected_document_count'], full_count)
+            self.assertGreater(dirty_citation_count(store), 0)
 
             indexed = zvec.index_all_messages(provider, batch_size=2, citations=[new_message.citation])
 
@@ -1267,13 +1346,28 @@ class ZvecRealAdapterTests(unittest.TestCase):
             store.upsert_messages([new_message])
             store.rebuild_message_chunks_for_conversations({(new_message.account_id, new_message.conversation_id)})
 
+            # Read-path status is ledger-authoritative: before any writer run
+            # records the new source count, the published generation still
+            # reports its last complete state.
+            pre_writer = zvec.status(provider=provider)
+            self.assertFalse(pre_writer['catchup_pending'])
+            # A writer run refreshes the ledger expected_count from a real
+            # source COUNT.  Indexing only the pre-existing chunk leaves the
+            # generation queryable but behind the ledger expectation.
+            self.assertEqual(
+                zvec.index_all_messages(provider, batch_size=2, citations=[anchor['citation']]),
+                0,
+            )
+
             status = zvec.status(provider=provider)
             self.assertFalse(status['rebuild_required'])
             self.assertTrue(status['catchup_pending'])
             self.assertEqual(status['reason_code'], 'zvec_catchup_pending')
+            self.assertGreater(status['expected_document_count'], status['indexed_count'])
 
             metadata = json.loads(zvec.metadata_path.read_text(encoding='utf-8'))
             metadata['complete'] = False
+            metadata['catchup_pending'] = False
             zvec.metadata_path.write_text(json.dumps(metadata), encoding='utf-8')
             interrupted = zvec.status(provider=provider)
 
@@ -1284,6 +1378,34 @@ class ZvecRealAdapterTests(unittest.TestCase):
 
             with self.assertRaisesRegex(RuntimeError, 'complete existing collection'):
                 zvec.index_all_messages(provider, batch_size=2, citations=[new_message.citation])
+
+    def test_zvec_status_reads_expected_count_from_ledger_without_source_count(self):
+        with tempfile.TemporaryDirectory() as d:
+            vault = Path(d) / 'vault'
+            index_fixture_vault(vault, reset=True)
+            store = SQLiteStore(vault / 'index' / 'trove.sqlite')
+            path = Path(d) / 'vectors' / 'zvec-ledger-count'
+            zvec = ZVecStore(path, store=store, memory_limit_mb=256)
+            zvec._zvec = _FakeZvecModule
+            zvec._error = None
+            _FakeZvecModule.collections.clear()
+            provider = FakeEmbeddingProvider(dimensions=16)
+            full_count = sum(1 for _ in store.iter_vector_documents())
+            self.assertEqual(zvec.index_all_messages(provider, batch_size=4), full_count)
+            generation = zvec.ledger.active_generation()
+            self.assertIsNotNone(generation)
+
+            with patch.object(
+                ZVecStore,
+                '_expected_document_count',
+                side_effect=AssertionError('read-path status must not count source tables'),
+            ):
+                status = zvec.status(provider=provider)
+
+            self.assertTrue(status['complete'])
+            self.assertFalse(status['catchup_pending'])
+            self.assertEqual(status['expected_document_count'], generation.expected_count)
+            self.assertEqual(status['indexed_count'], generation.indexed_count)
 
     def test_zvec_incremental_deletes_removed_favorite_chunk(self):
         with tempfile.TemporaryDirectory() as d:

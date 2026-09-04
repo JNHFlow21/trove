@@ -50,7 +50,17 @@ class VectorBackendRegistry:
             with self.store.connect() as conn:
                 if not self.store._table_exists(conn, 'vector_entries'):
                     return 0
-                return int(conn.execute('SELECT COUNT(*) FROM vector_entries').fetchone()[0])
+                # Bounded COUNT: the only consumer is the diagnostic
+                # availability decision ``entries <=
+                # SQLITE_VECTOR_DIAGNOSTIC_SEARCH_LIMIT``, so counting one row
+                # past the limit preserves exact decision semantics without
+                # scanning a table whose vector_json blobs can make a full
+                # COUNT(*) take minutes on a real Vault.  A reported value of
+                # ``limit + 1`` therefore means "at or above the limit".
+                return int(conn.execute(
+                    'SELECT COUNT(*) FROM (SELECT 1 FROM vector_entries LIMIT ?)',
+                    (SQLITE_VECTOR_DIAGNOSTIC_SEARCH_LIMIT + 1,),
+                ).fetchone()[0])
         except Exception:
             return 0
 
@@ -61,10 +71,13 @@ class VectorBackendRegistry:
             with self.store.connect() as conn:
                 if not self.store._table_exists(conn, 'messages'):
                     return 0
-                # Status needs one number, not the four table-wide counts in
-                # ``SQLiteStore.counts``.  On a real Vault the unused chunk
-                # count alone can add seconds to every maintain/status call.
-                return int(conn.execute('SELECT COUNT(*) FROM messages').fetchone()[0])
+                # Status needs one display number, not an exact count.  A full
+                # COUNT(*) over messages cost >60s on a real Vault (read
+                # connections run with an 8MiB page cache) and stalled every
+                # engine build past the search request deadline.  MAX(rowid)
+                # is a single b-tree seek; it is an upper bound for the row
+                # count because deleted rows leave rowid gaps.
+                return int(conn.execute('SELECT COALESCE(MAX(rowid), 0) FROM messages').fetchone()[0])
         except Exception:
             return 0
 

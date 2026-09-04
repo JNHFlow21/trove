@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, replace
 from collections import OrderedDict
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 import inspect
 import threading
 import time
@@ -29,6 +29,24 @@ EPISODE_EVIDENCE_ROUTE_WEIGHT = 12.0
 # retrieval broad enough for the bounded default reranker, which ranks complete
 # episode bundles without a separate online selector call.
 EPISODE_RUNTIME_CANDIDATE_LIMIT = 10
+
+
+class VectorRouteTimeout(RuntimeError):
+    """The additive vector route exceeded its bounded share of the request budget.
+
+    Raised inside the vector route so the existing fallback handler converts it
+    into a degraded vector status; the lexical routes still answer the request.
+    The timed-out worker is detached, not cancelled: Python threads cannot be
+    killed safely, and it releases its slot when the backend call returns.
+    """
+
+    vector_state = 'degraded'
+    reason_code = 'vector_route_timeout'
+
+    def __init__(self, route_timeout_seconds: float):
+        super().__init__(
+            f'vector route exceeded its bounded route budget ({route_timeout_seconds:.3f}s)'
+        )
 
 
 class _QueryEmbeddingCacheProvider:
@@ -86,8 +104,19 @@ class HyperSearch:
     episode_store: object | None = None
     evidence_selector: object | None = None
     query_embedding_cache_max: int = 128
+    # Hard wall-clock bound for each optional route (vector, episode).  None
+    # keeps direct library use unbounded; the daemon runtime always sets it so
+    # one slow backend degrades to lexical evidence instead of failing the
+    # whole request past its budget.
+    route_timeout_seconds: float | None = None
 
     def __post_init__(self) -> None:
+        if self.route_timeout_seconds is not None and (
+            not isinstance(self.route_timeout_seconds, (int, float))
+            or isinstance(self.route_timeout_seconds, bool)
+            or self.route_timeout_seconds <= 0
+        ):
+            raise ValueError('route_timeout_seconds must be greater than zero')
         # Dense and hybrid query vectors share one hard LRU bound.  Sparse
         # vectors can be materially larger than dense vectors, so separate
         # caches would silently double resident memory.
@@ -269,7 +298,28 @@ class HyperSearch:
         episode_bundles: tuple[Any, ...] = ()
         if episode_future is not None:
             try:
-                episode_rows, episode_status, selected_episode_citations, episode_bundles = episode_future.result()
+                if self.route_timeout_seconds is None:
+                    episode_rows, episode_status, selected_episode_citations, episode_bundles = episode_future.result()
+                else:
+                    # The episode route started at the top of the request, so
+                    # its remaining share is the route budget minus what the
+                    # message routes already consumed.  A spent budget degrades
+                    # the optional route instead of pushing the request past
+                    # the daemon deadline.
+                    episode_remaining = self.route_timeout_seconds - (time.perf_counter() - retrieval_start)
+                    episode_rows, episode_status, selected_episode_citations, episode_bundles = episode_future.result(
+                        timeout=max(episode_remaining, 0.05)
+                    )
+            except FutureTimeoutError:
+                episode_status = {
+                    'state': 'degraded',
+                    'reason_code': 'episode_route_timeout',
+                    'episode_count': 0,
+                    'candidate_count': 0,
+                    'selected_chain_count': 0,
+                    'fallback_mode': 'conversation_context',
+                    'parallel_execution': True,
+                }
             except Exception as exc:
                 episode_status = {
                     'state': 'degraded',
@@ -577,20 +627,7 @@ class HyperSearch:
         if self.vector_store and self.embedding_provider:
             try:
                 vector_status['attempted'] = True
-                cached_provider = _QueryEmbeddingCacheProvider(self, self.embedding_provider)
-                search_method = self.vector_store.search  # type: ignore[attr-defined]
-                try:
-                    parameters = inspect.signature(search_method).parameters
-                    accepts_provider = 'provider' in parameters or any(
-                        parameter.kind == inspect.Parameter.VAR_KEYWORD
-                        for parameter in parameters.values()
-                    )
-                except (TypeError, ValueError):
-                    accepts_provider = True
-                if accepts_provider:
-                    vector_rows = self.vector_store.search(request.query, filters=request.filters, limit=vector_route_limit, provider=cached_provider)  # type: ignore[attr-defined]
-                else:
-                    vector_rows = self.vector_store.search(request.query, filters=request.filters, limit=vector_route_limit)  # type: ignore[attr-defined]
+                vector_rows = self._invoke_vector_search_bounded(request, vector_route_limit)
                 vector_status.update({'enabled': True, 'available': True, 'state': 'available', 'reason': None, 'reason_code': None})
                 if hasattr(self.vector_store, 'last_search_status'):
                     filter_status = self.vector_store.last_search_status()  # type: ignore[attr-defined]
@@ -613,6 +650,36 @@ class HyperSearch:
             'reason': (self.vector_status or {}).get('message') or (self.vector_status or {}).get('reason_code') or 'no vector store configured',
         })
         return [], vector_status
+
+    def _invoke_vector_search(self, request: SearchRequest, vector_route_limit: int) -> list[Any]:
+        cached_provider = _QueryEmbeddingCacheProvider(self, self.embedding_provider)
+        search_method = self.vector_store.search  # type: ignore[attr-defined]
+        try:
+            parameters = inspect.signature(search_method).parameters
+            accepts_provider = 'provider' in parameters or any(
+                parameter.kind == inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters.values()
+            )
+        except (TypeError, ValueError):
+            accepts_provider = True
+        if accepts_provider:
+            return self.vector_store.search(request.query, filters=request.filters, limit=vector_route_limit, provider=cached_provider)  # type: ignore[attr-defined]
+        return self.vector_store.search(request.query, filters=request.filters, limit=vector_route_limit)  # type: ignore[attr-defined]
+
+    def _invoke_vector_search_bounded(self, request: SearchRequest, vector_route_limit: int) -> list[Any]:
+        if self.route_timeout_seconds is None:
+            return self._invoke_vector_search(request, vector_route_limit)
+        # The vector call cannot be cancelled once running, so it gets one
+        # dedicated worker and the route degrades when the join exceeds the
+        # bounded share of the request budget.  The worker is reaped by the
+        # done callback whenever the backend call finally returns.
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='trove-vector-query')
+        future = executor.submit(self._invoke_vector_search, request, vector_route_limit)
+        future.add_done_callback(lambda _completed, executor=executor: executor.shutdown(wait=False))
+        try:
+            return future.result(timeout=self.route_timeout_seconds)
+        except FutureTimeoutError as exc:
+            raise VectorRouteTimeout(self.route_timeout_seconds) from exc
 
     def _provider_cache_identity(self, provider: object) -> tuple[Any, ...]:
         return (

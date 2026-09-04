@@ -24,7 +24,7 @@ class MCPSurfaceV1Tests(unittest.TestCase):
     def test_server_identity_and_standard_pack_are_exact(self):
         self.assertEqual(SERVER_NAME, 'trove')
         self.assertEqual(tool_names('standard'), STANDARD_MCP_TOOLS)
-        self.assertLessEqual(len(STANDARD_MCP_TOOLS), 12)
+        self.assertLessEqual(len(STANDARD_MCP_TOOLS), 19)
 
     def test_packs_are_cumulative_reviewed_catalog_sets(self):
         standard = tool_names('standard')

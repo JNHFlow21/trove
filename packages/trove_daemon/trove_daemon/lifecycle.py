@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 import hashlib
-import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -52,29 +51,24 @@ def build_identity() -> str:
         'trove_cli', 'trove_mcp',
     )
     files: dict[str, Path] = {}
-    try:
-        distribution_files = importlib.metadata.files('trove-runtime') or ()
-    except importlib.metadata.PackageNotFoundError:
-        distribution_files = ()
-    for item in distribution_files:
-        parts = Path(str(item)).parts
-        if not parts or parts[0] not in package_names or Path(str(item)).suffix not in {'.py', '.json'}:
+    anchor = Path(__file__).resolve()
+    installed_root = anchor.parent.parent
+    installed = all((installed_root / name).is_dir() for name in package_names)
+    repo = anchor.parents[3] if not installed else None
+    for package_name in package_names:
+        root = (
+            installed_root / package_name
+            if installed
+            else repo / 'packages' / package_name / package_name
+        )
+        if not root.is_dir():
             continue
-        path = Path(item.locate())
-        if path.is_file() and '__pycache__' not in path.parts:
-            files[Path(*parts).as_posix()] = path
-    if not files:
-        repo = Path(__file__).resolve().parents[3]
-        for package_name in package_names:
-            root = repo / 'packages' / package_name / package_name
-            if not root.is_dir():
-                continue
-            for path in root.rglob('*'):
-                if (
-                    path.is_file() and path.suffix in {'.py', '.json'}
-                    and '__pycache__' not in path.parts
-                ):
-                    files[path.relative_to(root.parent).as_posix()] = path
+        for path in root.rglob('*'):
+            if (
+                path.is_file() and path.suffix in {'.py', '.json'}
+                and '__pycache__' not in path.parts
+            ):
+                files[path.relative_to(root.parent).as_posix()] = path
     if not files:
         files['trove_daemon/lifecycle.py'] = Path(__file__)
     for relative_text, path in sorted(files.items()):

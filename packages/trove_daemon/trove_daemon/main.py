@@ -9,6 +9,7 @@ import sys
 import threading
 
 from trove_core.application.dispatcher import build_default_dispatcher
+from trove_core.managed_process import ManagedLogGuard
 from trove_core.reply import (
     APIReplyGenerator,
     CodexReplyGenerator,
@@ -51,6 +52,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    log_guard = ManagedLogGuard()
+    log_guard.start()
     args = build_parser().parse_args(argv)
     actual_build = build_identity()
     actual_catalog = catalog_identity()
@@ -224,6 +227,7 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         server.stop(timeout=5.0)
         runtime_owner.close()
+        log_guard.close()
     return 0
 
 

@@ -17,7 +17,13 @@ from trove_client.client import TroveClient
 from trove_core.application.dispatcher import build_default_dispatcher
 from trove_core.vault.config import VaultConfig
 from trove_daemon.cursors import DaemonCursorStore
-from trove_daemon.lifecycle import LifecycleError, RuntimeIdentity, catalog_identity, require_macos
+from trove_daemon.lifecycle import (
+    LifecycleError,
+    RuntimeIdentity,
+    build_identity,
+    catalog_identity,
+    require_macos,
+)
 from trove_daemon.server import DaemonServer as _DaemonServer
 from trove_daemon.session import SessionContract, SessionError
 from trove_protocol.codec import FrameDecoder, MAX_FRAME_BYTES, encode_frame
@@ -61,6 +67,20 @@ class DaemonPlatformBoundaryTests(unittest.TestCase):
 
 
 class DaemonProtocolTests(unittest.TestCase):
+    def test_build_identity_is_independent_of_current_working_directory(self):
+        build_identity.cache_clear()
+        expected = build_identity()
+        with tempfile.TemporaryDirectory() as directory:
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+                build_identity.cache_clear()
+                actual = build_identity()
+            finally:
+                os.chdir(previous)
+                build_identity.cache_clear()
+        self.assertEqual(actual, expected)
+
     def setUp(self):
         # Exercise the portable Unix-socket protocol in Linux CI while the
         # production lifecycle continues to reject unsupported platforms.

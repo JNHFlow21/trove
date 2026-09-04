@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 import hashlib
@@ -48,7 +50,7 @@ class SQLiteArchiveImporter:
         uri = f'file:{self.path}?mode=ro'
         messages: list[Message] = []
         conversations: dict[str, Conversation] = {}
-        with sqlite3.connect(uri, uri=True) as conn:
+        with closing(sqlite3.connect(uri, uri=True)) as conn:
             conn.row_factory = sqlite3.Row
             for table in self.candidate_tables(conn):
                 cols = [r[1] for r in conn.execute(f'PRAGMA table_info({quote(table)})')]

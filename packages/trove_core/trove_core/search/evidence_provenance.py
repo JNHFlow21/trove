@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 import hashlib
 import json
 import os
@@ -156,7 +158,7 @@ def collect_store_provenance(sqlite_path: str | Path) -> dict[str, Any]:
         }
 
     uri = path.as_uri() + '?mode=ro'
-    with sqlite3.connect(uri, uri=True) as conn:
+    with closing(sqlite3.connect(uri, uri=True)) as conn:
         schema_rows = list(conn.execute(
             "SELECT type,name,coalesce(sql,'') FROM sqlite_master "
             "WHERE type IN ('table','index','trigger','view') ORDER BY type,name"

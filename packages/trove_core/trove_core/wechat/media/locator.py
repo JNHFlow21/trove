@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 from dataclasses import dataclass
 import hashlib
 import json
@@ -94,7 +96,7 @@ def _account_usernames(account_dir: Path, preferred_db: Path) -> list[str]:
     names: list[str] = []
     for path in paths:
         try:
-            with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 names.extend(str(row['user_name']) for row in conn.execute('SELECT user_name FROM Name2Id') if row['user_name'])
         except sqlite3.DatabaseError:
@@ -114,7 +116,7 @@ def _path_from_exact_row(account_dir: Path, coordinates: dict[str, Any]) -> Path
     if not db_path.is_file():
         return None
     try:
-        with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as conn:
+        with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as conn:
             conn.row_factory = sqlite3.Row
             columns = [str(row[1]) for row in conn.execute(f'PRAGMA table_info("{table}")')]
             if not columns:
@@ -141,7 +143,7 @@ def _path_from_message_row(account_dir: Path, coordinates: dict[str, Any]) -> Pa
     if not db_path.is_file():
         return None
     try:
-        with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as conn:
+        with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as conn:
             conn.row_factory = sqlite3.Row
             names = _account_usernames(account_dir, db_path)
             username = next(
@@ -176,7 +178,7 @@ def _message_row_identity(
     if not message_db.is_file():
         return None
     try:
-        with sqlite3.connect(f'file:{message_db}?mode=ro', uri=True) as conn:
+        with closing(sqlite3.connect(f'file:{message_db}?mode=ro', uri=True)) as conn:
             conn.row_factory = sqlite3.Row
             names = _account_usernames(account_dir, message_db)
             username = next(
@@ -247,7 +249,7 @@ def _voice_blob_from_media_db(account_dir: Path, coordinates: dict[str, Any]) ->
     if not media_db.is_file():
         return None
     try:
-        with sqlite3.connect(f'file:{media_db}?mode=ro', uri=True) as conn:
+        with closing(sqlite3.connect(f'file:{media_db}?mode=ro', uri=True)) as conn:
             conn.row_factory = sqlite3.Row
             columns = [str(row[1]) for row in conn.execute('PRAGMA table_info("VoiceInfo")')]
             required = {'local_id', 'voice_data'}
@@ -339,7 +341,7 @@ def _message_resource_keys(account_dir: Path, coordinates: dict[str, Any]) -> li
     if server_id is None or not resource_db.is_file():
         return []
     try:
-        with sqlite3.connect(f'file:{resource_db}?mode=ro', uri=True) as conn:
+        with closing(sqlite3.connect(f'file:{resource_db}?mode=ro', uri=True)) as conn:
             rows = list(conn.execute(
                 'SELECT packed_info FROM MessageResourceInfo WHERE message_svr_id=? LIMIT 3',
                 (server_id,),
@@ -367,7 +369,7 @@ def _path_from_live_hardlink_cache(
     if not resource_keys or not hardlink_db.is_file():
         return None
     try:
-        with sqlite3.connect(f'file:{hardlink_db}?mode=ro', uri=True) as conn:
+        with closing(sqlite3.connect(f'file:{hardlink_db}?mode=ro', uri=True)) as conn:
             conn.row_factory = sqlite3.Row
             for key in resource_keys:
                 if modality == 'image':
@@ -461,7 +463,7 @@ def _path_from_live_file_cache(
     month_names: list[str] = []
     if hardlink_db.is_file():
         try:
-            with sqlite3.connect(f'file:{hardlink_db}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{hardlink_db}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 table = conn.execute(
                     "SELECT 1 FROM sqlite_master WHERE type='table' AND name='file_hardlink_info_v4'",
@@ -536,7 +538,7 @@ def _path_from_resource_tables(account_dir: Path, local_id: int | None) -> Path 
         if not any(token in db_path.name.lower() for token in ('resource', 'media', 'message', 'hardlink', 'voice', 'image', 'img')):
             continue
         try:
-            with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 for table_row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"):
                     table = str(table_row['name'])
@@ -600,7 +602,7 @@ def _remote_moment_url(account_dir: Path, coordinates: dict[str, Any]) -> str | 
         if not db_path.is_file():
             continue
         try:
-            with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 columns = [str(row[1]) for row in conn.execute(f'PRAGMA table_info("{table}")')]
                 content_column = next((name for name in ('content', 'text', 'xml') if name in columns), None)
@@ -661,7 +663,7 @@ def _remote_message_sticker_url(account_dir: Path, coordinates: dict[str, Any]) 
     if not db_path.is_file():
         return None
     try:
-        with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as conn:
+        with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as conn:
             conn.row_factory = sqlite3.Row
             username = next(
                 (

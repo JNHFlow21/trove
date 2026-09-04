@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 from dataclasses import asdict, dataclass
 from pathlib import Path
 import hashlib
@@ -374,7 +376,7 @@ def discover_media_assets(account_dir: Path, *, account_id: str | None = None, l
         if not any(token in db_path.name.lower() for token in ('message', 'resource', 'contact', 'sns', 'favorite', 'fav', 'media', 'hardlink', 'head_image')):
             continue
         try:
-            with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 name_by_id = _load_name2id(conn) if db_path.name.startswith('message_') else {}
                 table_by_username = {'Msg_' + hashlib.md5(username.encode('utf-8')).hexdigest(): username for username in name_by_id.values()}
@@ -450,7 +452,7 @@ def discover_media_assets_delta(
             continue
 
         try:
-            with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 name_by_id = _load_name2id(conn) if db_path.name.startswith('message_') else {}
                 table_by_username = {'Msg_' + hashlib.md5(username.encode('utf-8')).hexdigest(): username for username in name_by_id.values()}

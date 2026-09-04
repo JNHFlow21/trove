@@ -88,6 +88,45 @@ class VectorBackendRegistryTests(unittest.TestCase):
             self.assertTrue(status['rebuild_required'])
             self.assertEqual(status['expected_embedding']['embedding_provider'], 'aliyun')
 
+    def test_message_count_is_a_max_rowid_upper_bound(self):
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            cfg = VaultConfig.resolve(d, env={})
+            store = SQLiteStore(cfg.paths.sqlite_path)
+            registry = VectorBackendRegistry(store=store, zvec_path=cfg.paths.vector_dir / 'zvec' / 'messages')
+            with store.connect() as conn:
+                max_rowid = int(conn.execute('SELECT MAX(rowid) FROM messages').fetchone()[0])
+                exact = int(conn.execute('SELECT COUNT(*) FROM messages').fetchone()[0])
+                conn.execute('DELETE FROM messages WHERE rowid = (SELECT MIN(rowid) FROM messages)')
+                conn.commit()
+            # An exact COUNT(*) would now return ``exact - 1``; the status
+            # read path deliberately reports the instant MAX(rowid) bound.
+            self.assertEqual(registry.message_count(), max_rowid)
+            self.assertGreater(registry.message_count(), exact - 1)
+
+    def test_sqlite_entries_count_is_bounded_by_the_diagnostic_limit(self):
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            cfg = VaultConfig.resolve(d, env={})
+            store = SQLiteStore(cfg.paths.sqlite_path)
+            provider = FakeEmbeddingProvider(dimensions=8)
+            SQLiteVectorStore(store).index_all_messages(provider, max_messages=3)
+            registry = VectorBackendRegistry(
+                store=store,
+                zvec_path=cfg.paths.vector_dir / 'zvec' / 'messages',
+                provider=provider,
+            )
+            actual = registry.sqlite_entries()
+            self.assertGreaterEqual(actual, 3)
+            with patch('trove_core.vector.registry.SQLITE_VECTOR_DIAGNOSTIC_SEARCH_LIMIT', actual - 1):
+                status = registry.status('sqlite').to_dict()
+            # The bounded count caps at ``limit + 1`` and still drives the
+            # exact availability decision.
+            self.assertEqual(status['sqlite']['entries'], actual)
+            self.assertEqual(status['sqlite']['reason_code'], 'sqlite_vector_diagnostic_limit_exceeded')
+            self.assertEqual(status['state'], 'unavailable_fallback')
+            self.assertEqual(status['selected_backend'], 'none')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 import hashlib
 import json
 import re
@@ -476,7 +478,7 @@ def media_understanding_status(vault_root: str | Path | None) -> dict[str, Any]:
     path = cfg.paths.sqlite_path
     if not path.exists():
         return _empty_understanding_status()
-    with sqlite3.connect(_sqlite_readonly_uri(path), uri=True) as conn:
+    with closing(sqlite3.connect(_sqlite_readonly_uri(path), uri=True)) as conn:
         conn.row_factory = sqlite3.Row
         table = conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type IN ('table','view') AND name='media_understanding' LIMIT 1"

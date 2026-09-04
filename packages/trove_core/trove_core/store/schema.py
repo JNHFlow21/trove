@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-SCHEMA_VERSION = 28
+SCHEMA_VERSION = 32
 FTS_TOKENIZER_VERSION = 'trigram/v1'
 VECTOR_SOURCE_REVISION_KEY = 'vector_source_revision'
 
@@ -711,6 +711,38 @@ SEARCH_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_evidence_chunks_source_parent ON evidence_chunks(source_type, parent_citation)",
     "CREATE INDEX IF NOT EXISTS idx_evidence_chunks_filter_time ON evidence_chunks(account_id, source_type, source_id, actor, timestamp)",
     "CREATE INDEX IF NOT EXISTS idx_evidence_chunks_source_id_status_time ON evidence_chunks(source_id, status, timestamp)",
+    # Moment timeline reads filter by one author and page backwards in
+    # (timestamp, moment_id) keyset order.  Without these the only moment
+    # indexes are the primary key and the unique citation, so every timeline
+    # and actor history query scans the full tables.
+    "CREATE INDEX IF NOT EXISTS idx_moment_items_author_time ON moment_items(author_id, timestamp, moment_id)",
+    "CREATE INDEX IF NOT EXISTS idx_moment_interactions_actor_time ON moment_interactions(actor_id, timestamp, interaction_id)",
+    # Favorites list reads page backwards in (timestamp, favorite_id) keyset
+    # order with an optional time window.  Without this the only favorites
+    # indexes are the primary key and the unique citation, so every page
+    # sorts or scans the full table.
+    "CREATE INDEX IF NOT EXISTS idx_favorites_time ON favorites(timestamp, favorite_id)",
+    # Message statistics always filter one bounded timestamp window and then
+    # group by conversation or sender.  A covering timestamp-leading index
+    # keeps that a single bounded range scan; without it every aggregate
+    # either scans the full messages table or touches one table row per
+    # windowed message, which thrashes the bounded per-connection page cache.
+    "CREATE INDEX IF NOT EXISTS idx_messages_stats_time ON messages(timestamp, account_id, conversation_id, conversation_type, direction, sender_id)",
+    # Kind-filtered message listings page backwards in (timestamp, citation)
+    # keyset order inside one content_kind.  Without this index every page
+    # either scans the full messages table or sorts one complete kind.  The
+    # trailing account/direction columns keep filtered listings covering:
+    # 'text' alone is the large majority of the table, and checking a
+    # direction or account filter through one table row fetch per index entry
+    # thrashes the bounded per-connection page cache.
+    "CREATE INDEX IF NOT EXISTS idx_messages_kind_time ON messages(content_kind, timestamp, citation, account_id, direction)",
+    # App message subtype listings select payload rows by normalized type (or
+    # by the raw appmsg type for subtypes the parser does not name yet, such
+    # as red packets) and join back to messages by citation.  Covering
+    # citation-second indexes keep that a bounded subtype seek instead of a
+    # full payload table scan.
+    "CREATE INDEX IF NOT EXISTS idx_message_payloads_type_citation ON message_payloads(normalized_type, citation)",
+    "CREATE INDEX IF NOT EXISTS idx_message_payloads_appmsg_citation ON message_payloads(appmsg_type, citation)",
 ]
 
 # The vector publish CAS must follow only rows that can change the document
@@ -874,4 +906,11 @@ EXPECTED_INDEX_COLUMNS = {
     'idx_evidence_chunks_source_parent': ('source_type', 'parent_citation'),
     'idx_evidence_chunks_filter_time': ('account_id', 'source_type', 'source_id', 'actor', 'timestamp'),
     'idx_evidence_chunks_source_id_status_time': ('source_id', 'status', 'timestamp'),
+    'idx_moment_items_author_time': ('author_id', 'timestamp', 'moment_id'),
+    'idx_moment_interactions_actor_time': ('actor_id', 'timestamp', 'interaction_id'),
+    'idx_favorites_time': ('timestamp', 'favorite_id'),
+    'idx_messages_stats_time': ('timestamp', 'account_id', 'conversation_id', 'conversation_type', 'direction', 'sender_id'),
+    'idx_messages_kind_time': ('content_kind', 'timestamp', 'citation', 'account_id', 'direction'),
+    'idx_message_payloads_type_citation': ('normalized_type', 'citation'),
+    'idx_message_payloads_appmsg_citation': ('appmsg_type', 'citation'),
 }

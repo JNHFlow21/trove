@@ -17,13 +17,16 @@ from trove_protocol.capabilities import (
 
 
 class CapabilityCatalogTests(unittest.TestCase):
-    def test_standard_pack_is_the_reviewed_twelve_tool_surface(self):
-        self.assertEqual(len(STANDARD_MCP_TOOLS), 12)
+    def test_standard_pack_is_the_reviewed_nineteen_tool_surface(self):
+        self.assertEqual(len(STANDARD_MCP_TOOLS), 19)
         self.assertEqual(STANDARD_MCP_TOOLS, {
             'trove_capabilities', 'trove_resolve', 'trove_recall', 'trove_group_summary',
             'trove_search', 'trove_context', 'trove_profile', 'trove_files_list',
-            'trove_media_fetch', 'trove_media_enrich', 'trove_operation_status',
-            'trove_operation_continue',
+            'trove_favorites_list',
+            'trove_moment_timeline', 'trove_moment_interactions',
+            'trove_message_stats', 'trove_pending_replies', 'trove_messages_by_kind',
+            'trove_media_fetch', 'trove_media_enrich', 'trove_media_enrich_plan',
+            'trove_operation_status', 'trove_operation_continue',
         })
         self.assertLess(
             set(spec.mcp_name for spec in capabilities_for_pack('standard')),

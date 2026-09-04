@@ -1,10 +1,13 @@
 from __future__ import annotations
+
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 import hashlib
+import itertools
 import re
 import sqlite3
-from typing import Any
+from typing import Any, Iterable
 
 try:
     import zstandard
@@ -90,6 +93,22 @@ def _record_waterline(
     updates[key] = prev
 
 
+def _sqlite_order_key(value: Any) -> tuple[int, Any]:
+    """Order values exactly as SQLite BINARY collation would."""
+
+    if value is None:
+        return (0, 0)
+    if isinstance(value, (int, float)):
+        return (1, value)
+    if isinstance(value, str):
+        return (2, value.encode('utf-8'))
+    return (3, bytes(value))
+
+
+def _row_order_key(row: sqlite3.Row) -> tuple[Any, Any]:
+    return (_sqlite_order_key(row['create_time']), _sqlite_order_key(row['local_id']))
+
+
 class WeChatDecryptedAccountImporter:
     """Importer for decrypted WeChat KOS account directories.
 
@@ -127,7 +146,7 @@ class WeChatDecryptedAccountImporter:
         waterline_updates: dict[tuple[str, str, str], dict[str, Any]] = {}
         waterlines = waterlines or {}
         for db_path in sorted(self.account_dir.glob('message_*.db')):
-            with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 name_by_id = self._load_name2id(conn)
                 table_by_username = {msg_table_for(username): username for username in name_by_id.values()}
@@ -157,13 +176,9 @@ class WeChatDecryptedAccountImporter:
                     select_cols = ['local_id', 'real_sender_id', 'create_time', *content_cols]
                     if 'local_type' in cols:
                         select_cols.append('local_type')
-                    query = 'SELECT ' + ', '.join(f'"{c}"' for c in select_cols) + f' FROM "{table}"'
+                    select_sql = 'SELECT ' + ', '.join(f'"{c}"' for c in select_cols) + f' FROM "{table}"'
                     params: list[Any] = []
-                    conditions: list[str] = []
-                    waterline = waterlines.get(key) or {}
-                    if waterline:
-                        conditions.append('(local_id > ? OR create_time > ?)')
-                        params.extend([int(waterline.get('max_local_id') or -1), int(waterline.get('max_create_time') or -1)])
+                    kind_condition = ''
                     if requested_kinds == {'appmsg'}:
                         appmsg_conditions: list[str] = []
                         if 'local_type' in cols:
@@ -178,13 +193,44 @@ class WeChatDecryptedAccountImporter:
                                 f'ltrim(lower({quoted})) LIKE \'<?xml%\'',
                                 f'substr(CAST("{content_col}" AS BLOB),1,4)=X\'28B52FFD\'',
                             ))
-                        conditions.append('(' + ' OR '.join(appmsg_conditions) + ')')
-                    if conditions:
-                        query += ' WHERE ' + ' AND '.join(conditions)
-                    query += ' ORDER BY create_time, local_id'
-                    if limit_per_shard:
-                        query += f' LIMIT {int(limit_per_shard)}'
-                    for row in conn.execute(query, params):
+                        kind_condition = '(' + ' OR '.join(appmsg_conditions) + ')'
+                    waterline = waterlines.get(key) or {}
+                    if waterline:
+                        max_local_id = int(waterline.get('max_local_id') or -1)
+                        max_create_time = int(waterline.get('max_create_time') or -1)
+                        # local_id is the table's rowid alias, so the primary branch
+                        # stays a rowid range scan.  OR-ing the unindexed create_time
+                        # term into one WHERE disables that scan and full-scans every
+                        # Msg_* table on every sync; the second branch instead selects
+                        # by create_time alone (served by the snapshot's create_time
+                        # index when present) and rows already delivered by the
+                        # primary branch are dropped while merging.
+                        branch_queries = []
+                        for condition in ('local_id > ?', 'create_time > ?'):
+                            branch = select_sql + ' WHERE ' + condition
+                            if kind_condition:
+                                branch += ' AND ' + kind_condition
+                            branch_queries.append(branch)
+                        matched = list(conn.execute(branch_queries[0], (max_local_id,)))
+                        seen_local_ids = {int(row['local_id']) for row in matched}
+                        matched.extend(
+                            row
+                            for row in conn.execute(branch_queries[1], (max_create_time,))
+                            if int(row['local_id']) not in seen_local_ids
+                        )
+                        matched.sort(key=_row_order_key)
+                        rows: Iterable[Any] = matched
+                        if limit_per_shard:
+                            rows = itertools.islice(matched, int(limit_per_shard))
+                    else:
+                        query = select_sql
+                        if kind_condition:
+                            query += ' WHERE ' + kind_condition
+                        query += ' ORDER BY create_time, local_id'
+                        if limit_per_shard:
+                            query += f' LIMIT {int(limit_per_shard)}'
+                        rows = conn.execute(query, params)
+                    for row in rows:
                         timestamp = parse_wechat_ts(row['create_time'])
                         local_id = int(row['local_id'])
                         raw_create_time = int(row['create_time'] or 0)
@@ -248,7 +294,7 @@ class WeChatDecryptedAccountImporter:
         updates: dict[tuple[str, str, str], dict[str, Any]] = {}
         for db_path in sorted(self.account_dir.glob('message_*.db')):
             try:
-                with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as conn:
+                with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as conn:
                     conn.row_factory = sqlite3.Row
                     name_by_id = self._load_name2id(conn)
                     table_by_username = {msg_table_for(username): username for username in name_by_id.values()}
@@ -305,7 +351,7 @@ class WeChatDecryptedAccountImporter:
             if not path.exists():
                 continue
             try:
-                with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as conn:
+                with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as conn:
                     conn.row_factory = sqlite3.Row
                     for table_row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'"):
                         table = str(table_row['name'] or '')
@@ -332,7 +378,7 @@ class WeChatDecryptedAccountImporter:
             return {}
         titles: dict[str, str] = {}
         try:
-            with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 for row in conn.execute('SELECT username, remark, nick_name, alias FROM contact'):
                     username = row['username']
@@ -349,7 +395,7 @@ class WeChatDecryptedAccountImporter:
             return {}
         counts: dict[str, int] = {}
         try:
-            with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as conn:
+            with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as conn:
                 conn.row_factory = sqlite3.Row
                 cols = [r[1] for r in conn.execute('PRAGMA table_info(chatroom_member)')]
                 if 'chatroom' in cols:

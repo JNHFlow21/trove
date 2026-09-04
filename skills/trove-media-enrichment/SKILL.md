@@ -9,6 +9,8 @@ Use protocol `trove/1`. Prefer MCP; use equivalent CLI routes only if MCP is una
 
 Fetch one exact citation with `trove_media_fetch` (`trove files fetch`). If cached understanding is sufficient, stop. Otherwise call `trove_media_enrich` with `kind=transcribe|annotate` (`trove media transcribe|annotate`).
 
+Before enriching a conversation, author, or account scope, preview the work with `trove_media_enrich_plan` (`trove media plan`): it reports candidate counts by state, the local/cloud split, and cost/duration estimates without running anything. Cloud items require the operator approval path; local OCR/caption does not.
+
 Track long work with `trove_operation_status`. If `awaiting_agent`, call `trove_operation_continue` once using only the operation's opaque token and bounded typed payload. Do not call internal lifecycle methods. Do not scan or enrich an entire history unless explicitly requested and bounded.
 
 Provider unavailable means report the required Provider and next action; pure Vault reads remain usable. Approval-required work may be requested/status-checked by the Agent but decided only by the human operator path. Never decide an approval.

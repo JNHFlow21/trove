@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1397,7 +1399,7 @@ def media_status_payload(vault_root: str | Path | None = None) -> dict[str, Any]
     if not store.path.exists():
         return _empty_media_status_payload()
     db_uri = store.path.resolve().as_uri() + '?mode=ro'
-    with sqlite3.connect(db_uri, uri=True) as conn:
+    with closing(sqlite3.connect(db_uri, uri=True)) as conn:
         conn.row_factory = sqlite3.Row
 
         def count(table: str, where: str = '1=1', params: tuple[Any, ...] = ()) -> int:

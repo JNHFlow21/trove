@@ -216,3 +216,39 @@ class WeChatDecryptedImporterTests(unittest.TestCase):
             self.assertEqual(second.status, 'completed')
             with store.connect() as conn:
                 self.assertEqual(conn.execute('SELECT COUNT(*) FROM message_payloads').fetchone()[0], 1)
+
+    def test_incremental_load_returns_exact_watermark_union_without_duplicates(self):
+        with tempfile.TemporaryDirectory() as d:
+            acct = self.make_account_dir(Path(d))
+            table = msg_table_for('room@chatroom')
+            importer = WeChatDecryptedAccountImporter(acct)
+            waterlines = importer.waterline_snapshot()
+            key = next(iter(waterlines))
+            self.assertEqual(waterlines[key]['max_local_id'], 2)
+            with sqlite3.connect(acct / 'message_0.db') as conn:
+                # A late row lands below the local_id watermark with a fresh
+                # create_time, as happens when WeChat reuses a vacated rowid.
+                conn.execute(f'DELETE FROM {table} WHERE local_id=2')
+                conn.execute(
+                    f'INSERT INTO {table}(local_id,real_sender_id,create_time,message_content) VALUES (?,?,?,?)',
+                    (2, 2, 1710000999, '乱序补发'),
+                )
+                # An appended row whose create_time sorts before the late row.
+                conn.execute(
+                    f'INSERT INTO {table}(local_id,real_sender_id,create_time,message_content) VALUES (?,?,?,?)',
+                    (3, 2, 1710000500, '正常追加'),
+                )
+                conn.commit()
+
+            _, _, messages = importer.load(waterlines=waterlines)
+
+            self.assertEqual(
+                [(message.local_id, message.content) for message in messages],
+                [(3, '正常追加'), (2, '乱序补发')],
+            )
+            update = importer.last_waterline_updates[key]
+            self.assertEqual(update['max_local_id'], 3)
+            self.assertEqual(update['max_create_time'], 1710000999)
+
+            _, _, second = importer.load(waterlines=importer.last_waterline_updates)
+            self.assertEqual(second, [])

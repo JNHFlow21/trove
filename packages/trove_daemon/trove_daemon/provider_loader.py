@@ -21,8 +21,8 @@ from trove_protocol.provider import ProviderManifest
 
 MAX_STAGING_BYTES = 64 * 1024 * 1024
 OFFICIAL_WECHAT_PACKAGE_SHA256 = (
-    'f73aa19d6539606ad24d94f2bb7cea5c'
-    '3bdfde7c6b2d68ecd9a734744a8e2e88'
+    'a411cc89708ec3f5637b033cb41c10b7'
+    'ac9e509efc4ce87c29813a8f6c42608a'
 )
 
 

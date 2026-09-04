@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 from contextlib import contextmanager
 from dataclasses import dataclass
 import argparse
@@ -30,6 +32,14 @@ DEFAULT_CONFIG_NAME = 'dual_account_sync.private.json'
 STATE_NAME = 'dual_account_sync_state.redacted.json'
 LOCK_NAME = '.dual_account_sync.lock'
 OUTPUT_SOURCE_NAME = 'wechat-integrated-decrypted'
+SYNC_CLIENT_TIMEOUT_SECONDS = 300
+SYNC_PROCESS_TIMEOUT_SECONDS = SYNC_CLIENT_TIMEOUT_SECONDS + 30
+SYNC_STATUS_CLIENT_TIMEOUT_SECONDS = 30
+SYNC_STATUS_PROCESS_TIMEOUT_SECONDS = SYNC_STATUS_CLIENT_TIMEOUT_SECONDS + 10
+SYNC_OPERATION_TIMEOUT_SECONDS = 60 * 60
+SYNC_POLL_INTERVAL_SECONDS = 5.0
+SYNC_MAX_REPLAY_ATTEMPTS = 16
+SYNC_MAX_STATUS_POLLS = int(SYNC_OPERATION_TIMEOUT_SECONDS / SYNC_POLL_INTERVAL_SECONDS)
 
 
 @dataclass(frozen=True)
@@ -193,7 +203,7 @@ def _bound_run_identities(
         return set()
     uri = f'{database.resolve().as_uri()}?mode=ro'
     try:
-        with sqlite3.connect(uri, uri=True, timeout=5.0) as connection:
+        with closing(sqlite3.connect(uri, uri=True, timeout=5.0)) as connection:
             tables = {
                 str(row[0])
                 for row in connection.execute(
@@ -381,50 +391,115 @@ def _run_trove_sync(
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> dict[str, Any]:
     executable = Path(sys.executable).with_name('trove')
-    arguments = [
-        str(executable), '--vault', str(vault.root), '--timeout', '300',
+    sync_arguments = [
+        str(executable), '--vault', str(vault.root), '--timeout',
+        str(SYNC_CLIENT_TIMEOUT_SECONDS),
         'sync', '--idempotency-key', idempotency_key,
     ]
     for account_id in account_ids:
-        arguments.extend(('--account-ids', account_id))
-    try:
-        completed = runner(
-            arguments,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False,
-            timeout=330,
-        )
-    except subprocess.TimeoutExpired:
-        return {
-            'ok': False,
-            'status': 'transport_unknown',
-            'returncode': None,
-            'stdout_bytes': 0,
-            'stderr_bytes': 0,
-        }
-    try:
-        payload = json.loads(completed.stdout)
-    except (TypeError, json.JSONDecodeError):
-        payload = {}
-    if completed.returncode or not isinstance(payload, dict) or payload.get('ok') is not True:
+        sync_arguments.extend(('--account-ids', account_id))
+
+    started = time.monotonic()
+    operation_id = ''
+    replay_attempts = 0
+    status_polls = 0
+    last_returncode: int | None = None
+    stdout_bytes = 0
+    stderr_bytes = 0
+    retryable_transport_codes = {'timeout', 'deadline_exceeded'}
+
+    while time.monotonic() - started < SYNC_OPERATION_TIMEOUT_SECONDS:
+        if operation_id:
+            if status_polls >= SYNC_MAX_STATUS_POLLS:
+                break
+            if status_polls:
+                time.sleep(SYNC_POLL_INTERVAL_SECONDS)
+            status_polls += 1
+            arguments = [
+                str(executable), '--vault', str(vault.root), '--timeout',
+                str(SYNC_STATUS_CLIENT_TIMEOUT_SECONDS),
+                'media', 'status', '--operation-id', operation_id,
+            ]
+            process_timeout = SYNC_STATUS_PROCESS_TIMEOUT_SECONDS
+        else:
+            if replay_attempts >= SYNC_MAX_REPLAY_ATTEMPTS:
+                break
+            replay_attempts += 1
+            arguments = sync_arguments
+            process_timeout = SYNC_PROCESS_TIMEOUT_SECONDS
+
+        try:
+            completed = runner(
+                arguments,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+                timeout=process_timeout,
+            )
+        except subprocess.TimeoutExpired:
+            continue
+
+        last_returncode = completed.returncode
+        stdout_bytes += len((completed.stdout or '').encode('utf-8'))
+        stderr_bytes += len((completed.stderr or '').encode('utf-8'))
+        try:
+            payload = json.loads(completed.stdout)
+        except (TypeError, json.JSONDecodeError):
+            payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+
+        error = payload.get('error') if isinstance(payload.get('error'), dict) else {}
+        details = error.get('details') if isinstance(error.get('details'), dict) else {}
+        data = payload.get('data') if isinstance(payload.get('data'), dict) else {}
+        operation = data.get('operation')
+        if not isinstance(operation, dict):
+            operation = details.get('operation')
+        if not isinstance(operation, dict):
+            operation = {}
+
+        state = str(operation.get('state') or '')
+        result = operation.get('result')
+        result = result if isinstance(result, dict) else {}
+        if state in {'completed', 'failed', 'cancelled'}:
+            return {
+                'ok': state == 'completed',
+                'status': state,
+                'messages_imported': int(result.get('messages_imported') or 0),
+                'sources_seen': int(result.get('sources_seen') or 0),
+                'elapsed_ms': float(result.get('elapsed_ms') or 0.0),
+                'replay_attempts': replay_attempts,
+                'status_polls': status_polls,
+            }
+
+        candidate_id = str(operation.get('operation_id') or '').strip()
+        if candidate_id and state in {
+            'pending', 'running', 'awaiting_agent', 'reconciling',
+        }:
+            operation_id = candidate_id
+            continue
+
+        error_code = str(error.get('code') or '')
+        if completed.returncode and error_code in retryable_transport_codes:
+            continue
         return {
             'ok': False,
             'status': 'sync_failed',
             'returncode': completed.returncode,
-            'stdout_bytes': len((completed.stdout or '').encode('utf-8')),
-            'stderr_bytes': len((completed.stderr or '').encode('utf-8')),
+            'stdout_bytes': stdout_bytes,
+            'stderr_bytes': stderr_bytes,
         }
-    operation = (payload.get('data') or {}).get('operation') or {}
-    result = operation.get('result') or {}
+
     return {
-        'ok': operation.get('state') == 'completed',
-        'status': operation.get('state'),
-        'messages_imported': int(result.get('messages_imported') or 0),
-        'sources_seen': int(result.get('sources_seen') or 0),
-        'elapsed_ms': float(result.get('elapsed_ms') or 0.0),
+        'ok': False,
+        'status': 'transport_unknown',
+        'returncode': last_returncode,
+        'stdout_bytes': stdout_bytes,
+        'stderr_bytes': stderr_bytes,
+        'replay_attempts': replay_attempts,
+        'status_polls': status_polls,
     }
 
 

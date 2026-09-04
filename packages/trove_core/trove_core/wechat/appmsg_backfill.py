@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 from datetime import datetime
 import hashlib
 from pathlib import Path
@@ -75,7 +77,7 @@ def _exact_appmsg_from_snapshot(store: SQLiteStore, cfg: VaultConfig, row: sqlit
         if not db_path.is_file():
             continue
         try:
-            with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as source:
+            with closing(sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)) as source:
                 source.row_factory = sqlite3.Row
                 try:
                     names = [str(item['user_name']) for item in source.execute('SELECT user_name FROM Name2Id') if item['user_name']]
@@ -84,7 +86,7 @@ def _exact_appmsg_from_snapshot(store: SQLiteStore, cfg: VaultConfig, row: sqlit
                 if not names:
                     for names_db in sorted(account_dir.glob('message_*.db')):
                         try:
-                            with sqlite3.connect(f'file:{names_db}?mode=ro', uri=True) as names_conn:
+                            with closing(sqlite3.connect(f'file:{names_db}?mode=ro', uri=True)) as names_conn:
                                 names_conn.row_factory = sqlite3.Row
                                 names.extend(
                                     str(item['user_name']) for item in names_conn.execute('SELECT user_name FROM Name2Id')

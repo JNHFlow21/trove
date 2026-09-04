@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import closing
+
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, replace
 import hashlib
@@ -630,7 +632,7 @@ class ReplyService:
             return None
         try:
             uri = database.resolve().as_uri() + '?mode=ro'
-            with sqlite3.connect(uri, uri=True, timeout=1.0) as conn:
+            with closing(sqlite3.connect(uri, uri=True, timeout=1.0)) as conn:
                 if account_id:
                     row = conn.execute(
                         """SELECT title FROM conversations

@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from trove_core.managed_process import (
+    ManagedLogGuard,
     ManagedProcessError,
     ManagedProcessManager,
     ManagedProcessRecord,
@@ -89,6 +90,45 @@ class ManagedProcessTests(unittest.TestCase):
             self.assertEqual(payload['command_hash'], 'a' * 64)
             self.assertRegex(payload['nonce'], r'^[0-9a-f]{32}$')
             self.assertEqual(payload['health_endpoint'], 'http://127.0.0.1:8765/health')
+
+    def test_managed_log_guard_truncates_one_shared_oversized_regular_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'managed.log'
+            with path.open('w+b') as stream:
+                stream.write(b'x' * 2048)
+                stream.flush()
+                guard = ManagedLogGuard(
+                    file_descriptors=(stream.fileno(), stream.fileno()),
+                    max_bytes=1024,
+                    poll_seconds=0.01,
+                )
+
+                self.assertEqual(guard.enforce_once(), 1)
+                self.assertEqual(path.stat().st_size, 0)
+
+    def test_new_managed_generation_discards_unbounded_old_log(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            log = root / 'trove-api.log'
+            log.write_bytes(b'x' * 2048)
+            process = FakeProcess()
+            manager = ManagedProcessManager(
+                root,
+                inspector=FakeInspector(),
+                probe=lambda *_args: True,
+                popen=lambda *args, **kwargs: process,
+            )
+
+            manager.start(
+                'api',
+                ['python', '-m', 'trove_api.server'],
+                health_endpoint='http://127.0.0.1:8765/health',
+                cwd=root,
+                env={},
+                readiness_timeout=0.2,
+            )
+
+            self.assertEqual(log.read_bytes(), b'')
 
     def test_child_environment_is_minimal_and_excludes_default_and_custom_secrets(self):
         with tempfile.TemporaryDirectory() as directory:

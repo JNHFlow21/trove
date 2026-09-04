@@ -1012,6 +1012,62 @@ def _apply_v28_operation_journal(
         fault('after_operation_journal')
 
 
+def _apply_v29_moment_query_indexes(
+    conn: sqlite3.Connection,
+    fault: Callable[[str], None] | None = None,
+) -> None:
+    """Install bounded moment timeline/actor-history indexes."""
+
+    _repair_profile_automation_table_definitions(conn)
+    _apply_current_persistent_schema(conn)
+    if not _fts_manifest_complete(conn):
+        _reconcile_fts(conn, fault)
+    if fault:
+        fault('after_moment_query_indexes')
+
+
+def _apply_v30_favorites_query_index(
+    conn: sqlite3.Connection,
+    fault: Callable[[str], None] | None = None,
+) -> None:
+    """Install the bounded favorites list keyset index."""
+
+    _repair_profile_automation_table_definitions(conn)
+    _apply_current_persistent_schema(conn)
+    if not _fts_manifest_complete(conn):
+        _reconcile_fts(conn, fault)
+    if fault:
+        fault('after_favorites_query_index')
+
+
+def _apply_v31_message_stats_index(
+    conn: sqlite3.Connection,
+    fault: Callable[[str], None] | None = None,
+) -> None:
+    """Install the covering bounded message statistics index."""
+
+    _repair_profile_automation_table_definitions(conn)
+    _apply_current_persistent_schema(conn)
+    if not _fts_manifest_complete(conn):
+        _reconcile_fts(conn, fault)
+    if fault:
+        fault('after_message_stats_index')
+
+
+def _apply_v32_message_kind_indexes(
+    conn: sqlite3.Connection,
+    fault: Callable[[str], None] | None = None,
+) -> None:
+    """Install the bounded kind-filtered message listing indexes."""
+
+    _repair_profile_automation_table_definitions(conn)
+    _apply_current_persistent_schema(conn)
+    if not _fts_manifest_complete(conn):
+        _reconcile_fts(conn, fault)
+    if fault:
+        fault('after_message_kind_indexes')
+
+
 def _repair_current_manifest(conn: sqlite3.Connection, fault: Callable[[str], None] | None = None) -> None:
     """Rebuild drifted DDL and reinstall deferred unique indexes safely."""
 
@@ -1024,6 +1080,10 @@ def _repair_current_manifest(conn: sqlite3.Connection, fault: Callable[[str], No
     _apply_v26_profile_automation(conn, fault)
     _apply_v27_profile_snapshot_version_uniqueness(conn, fault)
     _apply_v28_operation_journal(conn, fault)
+    _apply_v29_moment_query_indexes(conn, fault)
+    _apply_v30_favorites_query_index(conn, fault)
+    _apply_v31_message_stats_index(conn, fault)
+    _apply_v32_message_kind_indexes(conn, fault)
 
 
 MIGRATIONS = (
@@ -1044,6 +1104,10 @@ MIGRATIONS = (
     Migration(26, 'profile-automation', _apply_v26_profile_automation),
     Migration(27, 'profile-snapshot-version-uniqueness', _apply_v27_profile_snapshot_version_uniqueness),
     Migration(28, 'operation-journal', _apply_v28_operation_journal),
+    Migration(29, 'moment-query-indexes', _apply_v29_moment_query_indexes),
+    Migration(30, 'favorites-query-index', _apply_v30_favorites_query_index),
+    Migration(31, 'message-stats-index', _apply_v31_message_stats_index),
+    Migration(32, 'message-kind-indexes', _apply_v32_message_kind_indexes),
 )
 assert MIGRATIONS[-1].version == SCHEMA_VERSION
 assert tuple(item.version for item in MIGRATIONS) == tuple(sorted({item.version for item in MIGRATIONS}))

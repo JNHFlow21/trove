@@ -187,7 +187,7 @@ def build_default_dispatcher(
     runtime_owner: Any | None = None,
 ) -> CapabilityDispatcher:
     from .handlers import mutations, operations as operation_handlers
-    from .handlers import observations, queries, reply, system
+    from .handlers import favorites, media_plan, message_kinds, moments, observations, pending, queries, reply, stats, system
 
     cfg = config if isinstance(config, VaultConfig) else VaultConfig.resolve(str(config), env={})
     journal = OperationJournal(cfg.paths.sqlite_path)
@@ -220,10 +220,17 @@ def build_default_dispatcher(
         'trove.context': query(queries.context),
         'trove.profile': query(queries.profile),
         'trove.files_list': query(queries.files_list),
+        'trove.favorites_list': query(favorites.favorites_list),
+        'trove.moment_timeline': query(moments.moment_timeline),
+        'trove.moment_interactions': query(moments.moment_interactions),
+        'trove.message_stats': query(stats.message_stats),
+        'trove.pending_replies': query(pending.pending_replies),
+        'trove.messages_by_kind': query(message_kinds.messages_by_kind),
         'trove.reply_status': query(reply.status),
         'trove.reply_reviews': query(reply.reviews),
         'trove.reply_activity': query(reply.activity),
         'trove.media_fetch': query(queries.media_fetch),
+        'trove.media_enrich_plan': query(media_plan.media_enrich_plan),
         'trove.observe_add': lambda ctx, payload, _request_id: observations.add(ctx, payload),
         'trove.observe_list': lambda ctx, payload, _request_id: observations.list_observations(ctx, payload),
         'trove.operation_status': lambda ctx, payload, _request_id: operation_handlers.status(ctx, payload),
@@ -254,8 +261,12 @@ def build_default_dispatcher(
         'trove.capabilities', 'trove.resolve', 'trove.diagnostics',
         'trove.provider_status', 'trove.recall', 'trove.group_summary',
         'trove.search', 'trove.context', 'trove.profile', 'trove.files_list',
+        'trove.favorites_list',
+        'trove.moment_timeline', 'trove.moment_interactions',
+        'trove.message_stats',
+        'trove.pending_replies', 'trove.messages_by_kind',
         'trove.reply_status', 'trove.reply_reviews', 'trove.reply_activity',
-        'trove.media_fetch', 'trove.observe_add', 'trove.observe_list',
+        'trove.media_fetch', 'trove.media_enrich_plan', 'trove.observe_add', 'trove.observe_list',
         'trove.operation_status', 'trove.operation_continue',
         'trove.operation_cancel', 'trove.media_enrich', 'trove.profile_build',
         'trove.approval_request', 'trove.approval_status', 'trove.sync',

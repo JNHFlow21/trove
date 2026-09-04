@@ -73,6 +73,27 @@ class RuntimeResourceBudgetTests(unittest.TestCase):
             finally:
                 owner.close()
 
+    def test_search_engine_connections_share_the_read_page_cache_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            index_fixture_vault(root, reset=True)
+            owner = RuntimeOwner(
+                VaultConfig.resolve(directory, env={}),
+                provider_factory=lambda: None,
+                read_page_cache_kib=4 * 1024,
+            )
+            try:
+                response = owner.search_with_metrics(SearchRequest('价格太高', limit=2, semantic='off'))
+                self.assertTrue(response[0].results)
+                engine = owner._runtime().get()
+                self.assertEqual(engine.store.page_cache_kib, 4 * 1024)
+                with engine.store.connect() as connection:
+                    self.assertEqual(
+                        connection.execute('PRAGMA cache_size').fetchone()[0], -4 * 1024,
+                    )
+            finally:
+                owner.close()
+
     def test_status_path_does_not_import_search_provider_or_model_runtime(self):
         with tempfile.TemporaryDirectory() as directory:
             code = (
