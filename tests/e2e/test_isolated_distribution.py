@@ -91,7 +91,7 @@ class IsolatedDistributionTests(unittest.TestCase):
                     env=environment, text=True, capture_output=True, timeout=30,
                 )
                 self.assertEqual(mcp.returncode, 0, mcp.stderr)
-                self.assertEqual(json.loads(mcp.stdout), {'tools': 12, 'error': False})
+                self.assertEqual(json.loads(mcp.stdout), {'tools': 19, 'error': False})
             finally:
                 stopped = self.run_json([str(trove), '--vault', str(vault), 'stop'], cwd=cwd)
                 self.assertTrue(stopped['data']['drained'], stopped)

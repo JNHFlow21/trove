@@ -35,7 +35,7 @@ class SurfaceTokenBudgetTests(unittest.TestCase):
             measured['estimated_tokens'], self.targets['standard_tools_list_tokens_max'],
         )
         skill_files = sorted((ROOT / 'skills').glob('*/SKILL.md'))
-        self.assertEqual(len(skill_files), 6)
+        self.assertEqual(len(skill_files), 8)
         self.assertTrue(all(path.stat().st_size <= 5_000 for path in skill_files))
 
     def test_compact_success_and_error_envelopes_fit_soft_budget(self):
