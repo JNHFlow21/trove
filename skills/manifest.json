@@ -26,7 +26,9 @@
     {
       "capabilities": [
         "trove.search",
-        "trove.context"
+        "trove.context",
+        "trove.messages_by_kind",
+        "trove.favorites_list"
       ],
       "cli_fallback": true,
       "mcp_first": true,
@@ -62,12 +64,34 @@
       "capabilities": [
         "trove.media_fetch",
         "trove.media_enrich",
+        "trove.media_enrich_plan",
         "trove.operation_status",
         "trove.operation_continue"
       ],
       "cli_fallback": true,
       "mcp_first": true,
       "name": "trove-media-enrichment",
+      "version": "1.0.0"
+    },
+    {
+      "capabilities": [
+        "trove.moment_timeline",
+        "trove.moment_interactions",
+        "trove.resolve"
+      ],
+      "cli_fallback": true,
+      "mcp_first": true,
+      "name": "trove-moments",
+      "version": "1.0.0"
+    },
+    {
+      "capabilities": [
+        "trove.message_stats",
+        "trove.pending_replies"
+      ],
+      "cli_fallback": true,
+      "mcp_first": true,
+      "name": "trove-triage",
       "version": "1.0.0"
     }
   ]

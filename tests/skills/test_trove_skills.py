@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SKILLS = ROOT / 'skills'
 EXPECTED = {
     'trove-recall', 'trove-group-summary', 'trove-search', 'trove-profile',
-    'trove-file-recall', 'trove-media-enrichment',
+    'trove-file-recall', 'trove-media-enrichment', 'trove-moments',
+    'trove-triage',
 }
 FORBIDDEN = (
     '/Users/', 'python -m', 'sqlite', 'message_fts', 'trove_chat_recall',
@@ -30,7 +31,7 @@ class TroveSkillsTests(unittest.TestCase):
             for name in EXPECTED
         }
 
-    def test_manifest_is_exactly_six_version_bound_catalog_skills(self):
+    def test_manifest_is_exactly_eight_version_bound_catalog_skills(self):
         snapshot = catalog_snapshot()
         self.assertEqual(self.manifest['protocol'], 'trove/1')
         self.assertEqual(self.manifest['catalog_sha256'], snapshot['catalog_sha256'])

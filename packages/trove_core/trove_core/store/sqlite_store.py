@@ -735,6 +735,17 @@ class SQLiteStore:
         if getattr(self._local, 'connection', None) is connection:
             self._local.connection = None
 
+    def close_thread_connection(self) -> None:
+        """Close the calling thread's pooled connection, releasing its slot.
+
+        Pooled daemon threads reuse their thread-local handle forever, but an
+        ad-hoc worker thread (bounded optional search routes) dies with its
+        handle still counted: the slot is only released by ``close()``.  A
+        short-lived thread that queried the store must call this before
+        exiting or the bounded pool leaks one slot per such thread.
+        """
+        self._close_current_thread_connection()
+
     def _close_current_thread_connection(self) -> None:
         self._ensure_process_identity()
         self._connection_gate.acquire_read()

@@ -532,6 +532,38 @@ class HyperSearchTests(unittest.TestCase):
             self.assertEqual(vector['reason_code'], 'vector_route_timeout')
             self.assertLess(response.elapsed_ms, 1500)
 
+    def test_bounded_vector_route_does_not_leak_store_connection_slots(self):
+        class StoreTouchingVector:
+            def __init__(self, store):
+                self._store = store
+
+            def search(self, _query, filters=None, limit=10, provider=None):
+                self._store.evidence_by_citations(['trove://wechat/acct-work/conv-example_edu-private/message_0/1'])
+                return []
+
+        with tempfile.TemporaryDirectory() as d:
+            index_fixture_vault(Path(d), reset=True)
+            store = SQLiteStore(Path(d) / 'index' / 'trove.sqlite', readonly=True, max_connections=2)
+            search = HyperSearch(
+                store,
+                vector_store=StoreTouchingVector(store),
+                embedding_provider=object(),
+                vector_status={'state': 'available', 'selected_backend': 'zvec'},
+                route_timeout_seconds=5.0,
+            )
+            try:
+                for _ in range(4):
+                    vector = search.search(
+                        SearchRequest('价格太高', limit=2, semantic='on')
+                    ).retrieval_status['vector']
+                    self.assertTrue(vector['attempted'])
+                    self.assertEqual(vector['state'], 'available', vector.get('reason_code'))
+                # One slot is the test thread's own handle; every bounded
+                # vector worker must release its ad-hoc handle on exit.
+                self.assertLessEqual(store.active_connection_count, 2)
+            finally:
+                store.close_all()
+
     def test_episode_route_timeout_degrades_to_conversation_context(self):
         class FixedVector:
             def __init__(self, rows):

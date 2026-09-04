@@ -61,6 +61,53 @@ class SQLiteConnectionLifecycleTests(unittest.TestCase):
                 release.set()
                 self.assertTrue(all(future.result(timeout=10) >= 1 for future in futures))
 
+    def test_adhoc_threads_release_connection_slots_only_on_explicit_close(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._fixture_path(Path(directory))
+            store = open_store(path, readonly=True, max_connections=3)
+            try:
+                def ad_hoc_read(*, close: bool) -> None:
+                    with store.connect() as conn:
+                        conn.execute('SELECT COUNT(*) FROM messages').fetchone()
+                    if close:
+                        store.close_thread_connection()
+
+                def run(*, close: bool) -> str | None:
+                    errors: list[str] = []
+
+                    def target() -> None:
+                        try:
+                            ad_hoc_read(close=close)
+                        except Exception as exc:  # surfaced via return value
+                            errors.append(exc.__class__.__name__)
+
+                    thread = threading.Thread(target=target)
+                    thread.start()
+                    thread.join(10)
+                    self.assertFalse(thread.is_alive())
+                    return errors[0] if errors else None
+
+                # open_store() validated the schema on the main thread, which
+                # keeps one pooled handle; two more ad-hoc reads fit exactly.
+                self.assertIsNone(run(close=False))
+                self.assertIsNone(run(close=False))
+                # Both ad-hoc slots are still held by the two dead threads'
+                # handles; a third ad-hoc reader cannot acquire one.
+                self.assertEqual(run(close=False), 'SQLiteConnectionLimit')
+                self.assertEqual(store.active_connection_count, 3)
+                store.close_all()
+                self.assertEqual(store.active_connection_count, 0)
+                # Closing the ad-hoc thread's handle on exit keeps the pool
+                # stable across any number of short-lived readers.
+                for _ in range(3):
+                    self.assertIsNone(run(close=True))
+                self.assertEqual(store.active_connection_count, 0)
+            finally:
+                store.close_all()
+            self.assertEqual(store.active_connection_count, 0)
+            self.assertFalse(Path(f'{path}-wal').exists())
+            self.assertFalse(Path(f'{path}-shm').exists())
+
     def test_search_and_close_all_are_serialized_without_programming_errors(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self._fixture_path(Path(directory))

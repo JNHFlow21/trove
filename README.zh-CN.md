@@ -1,181 +1,100 @@
-<p align="center">
-  <a href="README.md">English</a> · <strong>简体中文</strong>
-</p>
+# TROVE
 
-<h1 align="center">TROVE</h1>
+TROVE 是仅支持 macOS 的本地私密能力运行时。它向外部 Agent 返回有界、带引用的
+证据，并可选择运行本地 Reply Runtime，经由已验证的来源 Provider 生成、审核并
+投递回复。回复投递默认关闭。MCP 是主要的 Agent 接口，CLI 是恢复与操作员接口。
 
-<p align="center">
-  <strong>面向 AI Agent 的本地优先、隐私保护型记忆与引用证据运行时。</strong>
-</p>
+产品是 **TROVE**。微信支持是一个可选的来源 Provider，而不是产品身份。
 
-<p align="center">
-  在 macOS 本地为 Codex、Claude Code 和其他 MCP 客户端提供有边界的证据 Vault 访问能力，而不是把个人数据变成云端服务。
-</p>
+## 安装
 
-<p align="center">
-  <a href="https://github.com/JNHFlow21/trove/actions/workflows/ci.yml"><img src="https://github.com/JNHFlow21/trove/actions/workflows/ci.yml/badge.svg" alt="CI 状态"></a>
-  <a href="https://github.com/JNHFlow21/trove/actions/workflows/privacy-scan.yml"><img src="https://github.com/JNHFlow21/trove/actions/workflows/privacy-scan.yml/badge.svg" alt="隐私扫描状态"></a>
-  <a href="https://github.com/JNHFlow21/trove/releases/latest"><img src="https://img.shields.io/github/v/release/JNHFlow21/trove?label=release" alt="最新 GitHub Release"></a>
-  <a href="https://www.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-only-111111?logo=apple" alt="仅支持 macOS"></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11 或更高版本"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-111111.svg" alt="Apache License 2.0"></a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/JNHFlow21/trove/stargazers"><img src="https://img.shields.io/github/stars/JNHFlow21/trove?style=flat-square&label=stars" alt="GitHub stars"></a>
-  <a href="https://github.com/JNHFlow21/trove/forks"><img src="https://img.shields.io/github/forks/JNHFlow21/trove?style=flat-square&label=forks" alt="GitHub forks"></a>
-  <a href="https://github.com/JNHFlow21/trove/commits/main"><img src="https://img.shields.io/github/commit-activity/t/JNHFlow21/trove?style=flat-square&label=commits" alt="GitHub commit activity"></a>
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=JNHFlow21.trove&left_text=README%20visits" alt="README 访问计数">
-</p>
-
-TROVE 不是通用自治 Agent，也不是托管式聊天数据库。外部 Agent 请求回忆、
-搜索、上下文或受控操作；TROVE 返回带引用、覆盖范围和大小边界的类型化结果。
-
-产品名称是 **TROVE**。微信只是一个可选数据源 Provider，并不是产品本身。
-
-## 为什么使用 TROVE
-
-| 常见做法 | TROVE |
-| --- | --- |
-| 把整段对话复制进 Agent 提示词 | 只返回当前任务需要的有边界证据 |
-| 让每个客户端直接打开数据库 | 每个规范 Vault 只由一个 owner-only daemon 协调 |
-| 把检索文本当成指令 | 消息、文件名、OCR 和转写只能作为不可信证据 |
-| 给 Agent 默认写入或发送权限 | 把请求、人类审批与实际发送策略彻底分离 |
-| 用自信答案掩盖检索不完整 | 明确返回引用、覆盖范围、游标和类型化错误 |
-
-## 架构
-
-```mermaid
-flowchart LR
-  A["Codex / Claude Code / MCP 客户端"] --> M["trove-mcp"]
-  O["本地操作者"] --> C["trove CLI"]
-  M --> L["共享客户端"]
-  C --> L
-  L -->|"owner-only Unix socket 上的 trove/1"| D["troved"]
-  D --> K["能力目录与调度器"]
-  K --> V["本地私有 Vault 与索引"]
-  K --> P["已验证的数据源 Provider"]
-  P --> W["可选微信数据源"]
-  D --> R["默认关闭的 Reply Runtime"]
-  O -->|"精确的本地决定"| R
-  R --> P
-```
-
-TROVE 不开放公网监听。CLI 和 MCP 适配器使用同一套协议、能力目录、验证与
-调度逻辑，因此恢复路径与 Agent 路径不会静默分叉。
-
-## 核心能力
-
-- **有边界的回忆与搜索**：结果上限、响应预算、不透明游标、覆盖元数据和稳定引用。
-- **本地优先存储**：Vault、索引、缓存和操作日志都保存在仓库外的 owner-controlled 路径。
-- **Agent 原生 MCP**：提供递增的 `standard`、`operations`、`admin` 能力包，应始终使用满足任务的最小能力包。
-- **类型化失败语义**：只有 `error.retryable` 为真时才重试；歧义和覆盖不完整会明确返回。
-- **Provider 边界**：数据源接入必须实现已验证合约；微信支持单独打包。
-- **人类控制的操作**：审批决定必须来自交互式控制终端，MCP 与后台任务无法自行批准。
-- **隐私门禁**：合成夹具规则、当前树扫描、Gitleaks 全 Git 历史扫描和 CI 检查。
-
-## 从源码开始
-
-要求：macOS、Python 3.11+、Git。
+在已验证的发布产物目录中：
 
 ```bash
-git clone https://github.com/JNHFlow21/trove.git
-cd trove
-TROVE_RUNTIME_INSTALL_EXTRAS="" bash scripts/bootstrap_runtime.sh
+python3 -m venv "$HOME/.local/share/trove/runtime"
+"$HOME/.local/share/trove/runtime/bin/pip" install ./trove_runtime-1.0.0-py3-none-any.whl ./trove_provider_*.whl
+export PATH="$HOME/.local/share/trove/runtime/bin:$PATH"
+trove version
+```
 
+保持产物目录与 Vault 仅属主可访问。创建或选择一个 Vault，然后运行已脱敏的
+健康检查。显式路径避免隐式发现。
+
+```bash
 export TROVE_VAULT_ROOT="$HOME/Trove/trove-vault"
 mkdir -p "$TROVE_VAULT_ROOT"
 chmod 700 "$TROVE_VAULT_ROOT"
-.venv/bin/trove --vault "$TROVE_VAULT_ROOT" doctor
+trove --vault "$TROVE_VAULT_ROOT" doctor
 ```
 
-默认的 macOS bootstrap 还支持 `local-vision,local-embedding,zvec`。
-其他本地 ASR、VLM、key-capture 或 cloud-retrieval 扩展请先阅读
-[测试文档](docs/testing.md)。
+## 连接 MCP
 
-### 连接 MCP 客户端
-
-通过 [Agent Switch](https://github.com/JNHFlow21/agent-switch) 注册已安装的
-`trove-mcp`：
+通过 Agent Switch 注册 `trove-mcp`，参数为：
 
 ```text
 --pack standard --vault $TROVE_VAULT_ROOT
 ```
 
-变更中央工具配置前运行 `agent-switch doctor`，变更后运行
-`agent-switch reconcile`。不要把密钥复制进原生客户端配置。
+修改其中央配置前运行 `agent-switch doctor`，之后运行
+`agent-switch reconcile`。不要手工编辑生成的客户端配置。日常回忆与搜索使用
+standard pack 即可。
 
-## 隐私与安全边界
+### 不使用 Agent Switch
 
-公开仓库只包含源码、Schema、公开文档和合成测试。真实聊天、联系人、账号
-标识、媒体、转写、OCR、Provider payload、本地 Vault、日志、密钥、机器路径和
-真实运行证据都不得进入当前目录、生成产物或 Git 历史。
+直接在每个客户端中注册已安装的 `trove-mcp`（源码检出使用
+`.venv/bin/trove-mcp`）。Claude Code：
 
-```bash
-./scripts/trove-python scripts/privacy_scan.py .
-./scripts/trove-python scripts/check.py contract
-gitleaks git --redact
+```text
+claude mcp add trove -- "$HOME/.local/share/trove/runtime/bin/trove-mcp" --pack standard --vault "$TROVE_VAULT_ROOT"
 ```
 
-扫描器只是门禁，不替代人工检查。详见[开源隐私边界](PRIVACY.md)和
-[安全策略](SECURITY.md)。Reply Runtime 默认关闭；Agent 可以请求或查看审批，
-但只有控制终端上的人类才能决定精确操作。
+Codex（会写入 `~/.codex/config.toml` 的 `[mcp_servers.trove]`）：
 
-## 仓库结构
+```text
+codex mcp add trove -- "$HOME/.local/share/trove/runtime/bin/trove-mcp" --pack standard --vault "$TROVE_VAULT_ROOT"
+```
 
-| 路径 | 职责 |
-| --- | --- |
-| `packages/trove_protocol` | 版本化 `trove/1` Schema 与 wire contract |
-| `packages/trove_core` | 能力目录、应用服务、搜索、Vault 与安全边界 |
-| `packages/trove_daemon` | 每个规范 Vault 对应的本地 daemon |
-| `packages/trove_client` | 所有适配器共用的客户端 |
-| `packages/trove_mcp` | 面向外部 Agent 的主要 stdio MCP 接口 |
-| `packages/trove_cli` | 操作、恢复、诊断与显式审批接口 |
-| `packages/trove_provider_wechat` | 独立打包的可选微信 Provider |
-| `skills` | 面向结果的 Agent Skills 与清单 |
-| `scripts` | 构建、测试、隐私、发行、性能和迁移门禁 |
+用 `bash scripts/install_skills.sh` 安装随仓 Skill：它把 `skills/*` 以符号链接
+装入 `~/.agents/skills`，支持 `--target DIR` 指定目录，`--uninstall` 只移除这些
+链接。
 
-## 文档
+密钥取值只经由 Agent Switch 解析；环境变量用于启用 Provider 和选择密钥名，
+绝不承载取值。没有 Agent Switch 时，本地 embedding 与全部 Vault 读取仍然可用；
+云端能力与来源 Provider 密钥捕获需要 Agent Switch
+（github.com/JNHFlow21/agent-switch）。
 
-- [架构](docs/architecture.md)
-- [MCP 能力包与信任边界](docs/mcp.md)
-- [能力参考](docs/capability-map.md)
-- [协议](docs/protocol.md)
-- [Provider SDK](docs/provider-sdk.md)
-- [微信 Provider](docs/providers/wechat.md)
-- [运维与恢复](docs/operations.md)
-- [测试](docs/testing.md)
-- [发行模型](docs/release.md)
-- [更新记录](CHANGELOG.md)
-- [路线图](docs/roadmap.md)
+## 第一次调用
 
-## 项目数据
+让 Agent 调用 `trove_recall`，或使用完全等价的 CLI 兜底：
 
-| 公开指标 | 实时数据或最近一次维护者可见数据 |
-| --- | ---: |
-| Star / Fork / Commit | 见上方实时徽章 |
-| README 访问量 | 见上方公开计数器；可能包含机器人和重复访问 |
-| 仓库独立访客 | GitHub Traffic 最近 14 天滚动窗口内为 **0** |
-| 独立克隆者 | 最近 14 天滚动窗口内为 **15**（共 **21** 次克隆） |
+```bash
+trove --vault "$TROVE_VAULT_ROOT" recall --target "Example person" --limit 50
+```
 
-<sub>数据快照日期：2026-08-10。GitHub 只向仓库维护者提供克隆与独立访客数据，因此这里采用注明日期的透明快照，而不是需要私密 Token 的公开徽章。</sub>
+JSON 信封给出 `ok`、类型化错误、引用与覆盖度。仅当请求的覆盖度需要下一页时
+才跟随不透明游标。
 
-### 克隆趋势
+## 故障路径
 
-<p align="center">
-  <a href="https://github.com/JNHFlow21/trove">
-    <img width="800" src="https://raw.githubusercontent.com/JNHFlow21/trove/metrics/repository-metrics.svg" alt="TROVE 最近 14 天克隆趋势与仓库指标">
-  </a>
-</p>
+运行 `trove --vault "$TROVE_VAULT_ROOT" doctor`。仅当 `error.retryable` 为真时
+重试。遇到 `ambiguous_target` 时，从返回的账户中选定一个。遇到
+`approval_required` 时停下：Agent 可以请求或查看审批，但只有控制终端前的人
+才能决定。
 
-<sub>曲线展示 GitHub Traffic 最近 14 天滚动窗口内的累计克隆次数。Traffic 序列采用注明日期的仓库所有者聚合快照；侧边的 Star、Fork 与 Commit 会在每次获得新 Star 后及每周自动刷新。README 中不嵌入任何长期 Token。</sub>
+参见 [MCP](docs/mcp.md)、[operations](docs/operations.md) 与生成的
+[能力参考](docs/capability-map.md)。Provider 设置是独立的；参见
+[已安装的来源 Provider](docs/providers/wechat.md)。可选 Reply Runtime 的架构与
+安全模型见 [Reply Runtime](docs/architecture/reply-runtime.md)。
 
-## 参与贡献
+## 隐私边界
 
-提交 PR 前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。削弱隐私、应用边界或
-审批边界的变更不会被接受。安全漏洞请通过 GitHub 私密漏洞报告提交，不要创建
-公开 Issue。
+真实聊天数据库、导出、媒体、转录、Provider 载荷、密钥、日志与本地 Vault 数据
+不属于本仓库。测试与入库证据必须是合成的或明确来源安全的。每次提交前运行
+隐私扫描。
 
-## 许可证
+参见[开源隐私](PRIVACY.md)与[安全策略](SECURITY.md)。
 
-[Apache License 2.0](LICENSE) © 2026 TROVE contributors
+## 贡献
+
+参见 [CONTRIBUTING.md](CONTRIBUTING.md)。TROVE 采用
+[Apache License 2.0](LICENSE) 许可。

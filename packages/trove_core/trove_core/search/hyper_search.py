@@ -141,8 +141,14 @@ class HyperSearch:
         )
         episode_future: Future | None = None
         if multi_hop_expansion and self.episode_store is not None and self.embedding_provider is not None:
+            def run_episode() -> tuple[list[Any], dict[str, Any], tuple[str, ...], tuple[Any, ...]]:
+                try:
+                    return self._run_episode_route(request)
+                finally:
+                    self._close_adhoc_thread_store_connection()
+
             episode_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='trove-episode-query')
-            episode_future = episode_executor.submit(self._run_episode_route, request)
+            episode_future = episode_executor.submit(run_episode)
             episode_future.add_done_callback(
                 lambda _completed, executor=episode_executor: executor.shutdown(wait=False)
             )
@@ -673,13 +679,27 @@ class HyperSearch:
         # dedicated worker and the route degrades when the join exceeds the
         # bounded share of the request budget.  The worker is reaped by the
         # done callback whenever the backend call finally returns.
+        def run() -> list[Any]:
+            try:
+                return self._invoke_vector_search(request, vector_route_limit)
+            finally:
+                self._close_adhoc_thread_store_connection()
+
         executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='trove-vector-query')
-        future = executor.submit(self._invoke_vector_search, request, vector_route_limit)
+        future = executor.submit(run)
         future.add_done_callback(lambda _completed, executor=executor: executor.shutdown(wait=False))
         try:
             return future.result(timeout=self.route_timeout_seconds)
         except FutureTimeoutError as exc:
             raise VectorRouteTimeout(self.route_timeout_seconds) from exc
+
+    def _close_adhoc_thread_store_connection(self) -> None:
+        # A short-lived route worker must not die holding its thread-local
+        # store handle: SQLiteStore releases the bounded pool slot only on an
+        # explicit close, so each leaked handle permanently consumes one slot.
+        close_thread_connection = getattr(self.store, 'close_thread_connection', None)
+        if callable(close_thread_connection):
+            close_thread_connection()
 
     def _provider_cache_identity(self, provider: object) -> tuple[Any, ...]:
         return (

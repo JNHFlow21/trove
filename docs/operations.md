@@ -16,6 +16,27 @@ trove --vault "$TROVE_VAULT_ROOT" stop
 Ordinary calls autostart the compatible daemon. A protocol, build, catalog, or
 Vault identity mismatch fails closed rather than sharing state.
 
+## Secrets and environment
+
+Secret values live only in Agent Switch. TROVE reads them through
+`agent-switch secret get --fd` and never accepts credentials from environment
+variables, command arguments, or files. Environment variables only enable
+optional cloud providers and select which secret name each one uses:
+
+- `TROVE_ENABLE_CLOUD_EMBEDDING`, `TROVE_ENABLE_CLOUD_RERANK`,
+  `TROVE_ENABLE_CLOUD_ASR`, `TROVE_ENABLE_CLOUD_VISION` (`1`, `true`, `yes`).
+- Secret-name selectors: `TROVE_CLOUD_EMBEDDING_KEY_ENV` and
+  `TROVE_CLOUD_RERANK_KEY_ENV` (default `DASHSCOPE_API_KEY`),
+  `TROVE_ASR_SECRET_NAME` (default `VOLCENGINE_ASR_API_KEY`),
+  `TROVE_VISION_SECRET_NAME` (default `VOLCENGINE_ARK_API_KEY`).
+- Provider selection: `TROVE_CLOUD_EMBEDDING_PROVIDER` (`aliyun` or
+  `volcengine`) and `TROVE_CLOUD_RERANK_PROVIDER`.
+- Optional spend cap: `TROVE_CLOUD_COST_CAP_RMB`.
+
+Without Agent Switch, local embedding and every Vault read keep working.
+Cloud providers and source Provider key capture are unavailable because their
+secret values have no other store.
+
 ## Human approval
 
 An Agent may request approval and inspect status, but it cannot decide. The
